@@ -1,0 +1,81 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[pdftex]{graphicx}
+\usepackage[cmex10]{amsmath}
+\usepackage{color}
+\usepackage{xspace}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usepackage{textcomp}
+\usetikzlibrary{pgfplots.groupplots}
+\usepackage{url}
+\usepackage{listings}
+
+\newcommand{\todo}[1]{\textbf{\textcolor{blue}{TODO: #1}}} % add a comment to the article
+\newcommand{\lst}[1]{\lstinline!#1!} % add a comment to the article
+
+\lstset{
+    language=[ANSI]C++,
+    numbers=left,
+    basicstyle=\small,
+    keywordstyle=\bf,
+    commentstyle=\color{black}\bf
+}
+
+\begin{document}
+
+% title and cover page
+\title{CoreBluron Overview}
+\author{Ben Cumming\\CSCS -- Swiss National Supercomputing Center}
+\date{\today}
+\maketitle
+
+% abstract
+\abstract{
+This document presents an overview of the CoreBluron code that was released as part of the PCP process for the Human Brain Project in July 2014. The analysis reguards the code from a computational intensity point of view. That is, the focus is to describe the structure of the code that has the highest computational overheads.
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Overview}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The version of CoreBluron that was released for the PCP is derived directly from Bluron, a flavour of Neuron maintained by the Blue Brain Project (BBP) group at EPFL. CoreBluron is derived directly in the sense that it is a subset of the features and corresponding code from Bluron. The code has been modified as much as needed to remove it from the larger Bluron infrastructure, and remove the memory footprint of the code.
+
+Code changes and refactoring have not been performed to improve computational speed, or indeed to improve the quality of the code.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{The Code}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The code in its current form is a mixture of C and C++.
+
+\todo{overview of each section: nrniv, nrnmpi, mechs, etc. Include information about mix of }
+
+%-------------------------------------------------------------
+\subsection{Code Issues}
+%-------------------------------------------------------------
+It must be noted that the current form of the code is very poor from a sofware engineering point of view.
+
+\todo{list bad practices}
+\begin{itemize}
+    \item
+        global variables. static global variables are used for scoping within a translation unit.
+    \item
+        use of \lst{#define} for many terms. Often define will refere to a global variable from a different translation unit. This is insane.
+    \item
+        The C++ code uses new and delete keywords, sometimes forgetting to delete. Should use static arrays or STL containers depending on needs.
+    \item
+        overly complicated data structures that make it very difficult for both humans and compilers to reason about the code. As a result there are a lot of lost oportunities for optimization for the compiler.
+    \item
+        Poor commenting/documentation.
+\end{itemize}
+
+It should be noted that in its current state the code has been taken directly from the Bluron code base, and that the plan is to rewrite the code using modern development practices. However, this will prove challenging, given the difficulty of understanding the current code, which is a prerequisite for rewriting the code. Developing documentation of the algorithms as they are currently implemented is essential if the code is to be refactored.
+
+To use the GPU and MIC effectively (even to use CPU effectively), the code has be to be refactored.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Building}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+\end{document}

@@ -1,0 +1,13 @@
+# vim swap files
+*.swp
+*.swo
+*.swn
+*.swq
+
+# pdf
+*.pdf
+
+# latex auxiliary
+*.aux
+*.bbl
+*.log
