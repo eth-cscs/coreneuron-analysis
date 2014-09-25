@@ -1,0 +1,24 @@
+digraph G {
+    newrank=true;
+    node [shape=box, style="filled", fillcolor=white, color=white]
+    subgraph Cluster0 {
+        fontsize=20;
+        style="filled";
+        color=lightsalmon1;
+        label="nrniv";
+        {node [label="BBS_netpar_solve"] bbs;}
+        {node [label="ncs2nrn_integrate"] ncs;}
+    }
+    subgraph Cluster1 {
+        fontsize=20;
+        label="nrnoc";
+        style=filled;
+        color=lightskyblue3;
+        {node [label="nrn_fixed_step_group_minimal"] stepmin;}
+        {node [label="nrn_fixed_step_group_thread"] stepthread;}
+        {node [label="nrn_fixed_step_thread"] final;}
+    }
+    bbs ->ncs -> stepmin -> stepthread -> final
+    {rank=same; bbs; ncs}
+    {rank=same; stepmin; stepthread; final}
+}

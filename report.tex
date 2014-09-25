@@ -4,23 +4,28 @@
 \usepackage[cmex10]{amsmath}
 \usepackage{color}
 \usepackage{xspace}
+\usepackage{dot2texi}
 \usepackage{tikz}
 \usepackage{pgfplots}
 \usepackage{pgfplotstable}
 \usepackage{textcomp}
+\usetikzlibrary{shapes,arrows}
 \usetikzlibrary{pgfplots.groupplots}
 \usepackage{url}
 \usepackage{listings}
 
 \newcommand{\todo}[1]{\textbf{\textcolor{blue}{TODO: #1}}} % add a comment to the article
 \newcommand{\lst}[1]{\lstinline!#1!} % add a comment to the article
+\newcommand{\fig}[1]{Fig.~\ref{#1}} % add a comment to the article
+\newcommand{\tbl}[1]{Tbl.~\ref{#1}} % add a comment to the article
+\newcommand{\file}[1]{\lstinline[basicstyle=\normalsize,]!#1!} % add a comment to the article
 
 \lstset{
     language=[ANSI]C++,
     numbers=left,
-    basicstyle=\small,
-    keywordstyle=\bf,
-    commentstyle=\color{black}\bf
+    basicstyle=\small\ttfamily,
+    keywordstyle=\color{blue}\small\ttfamily\bf,
+    commentstyle=\color{red}\small\ttfamily\bf
 }
 
 \begin{document}
@@ -41,43 +46,231 @@ More detailed analysis of the algorithms themselves, and important parts of the 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Overview}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The version of CoreBluron that was released for the PCP is derived directly from Bluron, a flavour of Neuron maintained by the Blue Brain Project (BBP) group at EPFL. CoreBluron is derived directly in the sense that it is a subset of the features and corresponding code from Bluron. The code has been modified as much as needed to remove it from the larger Bluron infrastructure, and remove the memory footprint of the code.
-
-Code changes and refactoring have not been performed to improve computational speed, or indeed to improve the quality of the code.
+The version of CoreBluron that was released for the PCP is derived directly from Bluron, a flavour of Neuron maintained by the Blue Brain Project (BBP) group at EPFL. CoreBluron is derived directly in the sense that it is a subset of the features and corresponding code from Bluron. The code has been modified as much as needed to remove it from the larger Bluron infrastructure, and reduce the memory footprint of the code.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{The Code}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 The code in its current form is a mixture of C and C++.
 
-\todo{overview of each section: nrniv, nrnmpi, mechs, etc. Include information about mix of }
-
 %-------------------------------------------------------------
 \subsection{Code Issues}
 %-------------------------------------------------------------
-It must be noted that the current form of the code is very poor from a sofware engineering point of view.
-
-\todo{list bad practices}
+It must be noted that the current form of the code is poor from a sofware engineering point of view:
 \begin{itemize}
     \item
-        global variables. static global variables are used for scoping within a translation unit.
+        There are many global variables. Static global variables are used for scoping within a translation unit.
     \item
-        use of \lst{#define} for many terms. Often define will refere to a global variable from a different translation unit. This is insane.
+        The use of preprocessor \lst{#define} makes the code very difficult to reason about. Many variable names are redefined, which obscures the meaning of the code. There are also many ``magic numbers'' that are defined on differently in different translation units.
     \item
         The C++ code uses new and delete keywords, sometimes forgetting to delete. Should use static arrays or STL containers depending on needs.
     \item
-        overly complicated data structures that make it very difficult for both humans and compilers to reason about the code. As a result there are a lot of lost oportunities for optimization for the compiler.
+        overly complicated data structures that make it very difficult for both humans and compilers to reason about the code. As a result there are a lot of lost opportunities for optimization for the compiler.
     \item
         Poor commenting/documentation.
 \end{itemize}
 
 It should be noted that in its current state the code has been taken directly from the Bluron code base, and that the plan is to rewrite the code using modern development practices. However, this will prove challenging, given the difficulty of understanding the current code, which is a prerequisite for rewriting the code. Developing documentation of the algorithms as they are currently implemented is essential if the code is to be refactored.
 
-To use the GPU and MIC effectively (even to use CPU effectively), the code has be to be refactored.
+To use the GPU and MIC effectively (even to use CPU effectively), the code will have to be refactored, or rewritten significantly.
+%-------------------------------------------------------------
+\subsection{Code Layout}
+%-------------------------------------------------------------
+The source code is packaged in a file \lst{CoreBluron.tar.gz}, which has the directory structure in \fig{fig:DirectoryStructure}.
+
+In terms of time to solution, functions defined in \lst{mech/cfiles} dominate. These are called from the solver routines in \lst{nrnoc}, which implements the core computation, and has been to date the focus of my analysis.
+
+\begin{figure}[tp!]
+%---------------------------
+\fbox{ \parbox{\textwidth} {
+
+\begin{itemize}
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \item \textbf{nrniv}
+    \begin{itemize}
+        \item C and C++ (11,470 lines).
+        \item The corebluron driver: \lst{main()} is in \lst{main1.cpp}.
+    \end{itemize}
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \item \textbf{nrnoc}
+    \begin{itemize}
+        \item C (2,889 lines).
+        \item The CoreBluron ``engine''
+        \begin{itemize}
+            \item storage
+            \item solvers
+            \item time stepping
+            \item etc...
+        \end{itemize}
+    \end{itemize}
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \item \textbf{mech/cfiles}
+    \begin{itemize}
+        \item C (11,301 lines).
+        \item Definitions of all the mechanisms.
+        \item generated from \lst{.hoc} files by Neuron.
+        \item the generated code is very messy (use \lst{clang-format} to make things bearable)
+    \end{itemize}
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \item \textbf{nrnmpi}
+    \begin{itemize}
+        \item C (1,096 lines).
+        \item Wrappers around MPI routines.
+        \item Spike exchange implementation.
+        \item Global variables that store MPI state.
+    \end{itemize}
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \item \textbf{utils}
+    \begin{itemize}
+        \item C++ (4,494 lines)
+        \item Random number generators
+    \end{itemize}
+\end{itemize}
+
+}}
+%---------------------------
+
+\caption{Overview of the directory structure for the source code. There are a total of 31,250 lines of code (including white space and comments).}
+\label{fig:DirectoryStructure}
+
+\end{figure}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Building}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The code was built on Cray XC-30 system Piz Daint at CSCS with minimal fuss using the GNU toolchain.
+The Cray compiler toolchain had problems that are not insurmountable, but they would require a lot of tinkering with the baroque Buildyard toolchain used to build the code.
 
+The build uses cmake, with a custom set of cmake modules developed by BBP (the BuildYard modules). Many of these modules are not relevant, and configuration can be sped up significantly by removing them (for example the C++11 tests). The cmake configuration attempts to determine the version of the Cray compiler by passing a flag that the compiler doesn't recognise, causing the configuration to exit.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Datasets}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+There are two data sets provided with the PCP benchmark code:
+\begin{itemize}
+    \item \textbf{TEST1\_CACHE} A network small enough to fit into Cache of one rack of BG/Q. Has size of 2.5G on disk.
+    \item \textbf{TEST2\_DRAM} A much larger network (size 4.5T on disk), that fits in DRAM of one rack of BG/Q.
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Code Walkthrough}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+We now describe, from a high level, the structure of the code, and where time is spent.
+
+The driver code is in \file{nrniv/main1.cpp}. From the breakdown of the wall time for the TEST2 data set in \tbl{tbl:wallmain} it is apparent that from a computational point of view, the only component of importance is the time stepping/sover portion of the program in \lst{BBS_netpar_solve()}, which takes 99.8\% of time to solution.
+
+Nevertheless, I will breifly describe the other steps performed in the main driver:
+\begin{enumerate}
+\item \lst{mk_mech()}\\
+   The mechanisms are configured. A text file with a tuple for each mechanism (name, unique index, parameter count, type,  etc \dots) is scanned. This text file is (probably) generated when the .hoc files are generated, to provide a bridge between the runtime and the mechanisms implemented using the Neuron .hoc language.
+\item \lst{mk_netcvode()}\\
+    Creates a new \lst{NetCvode} object (see \file{nrnoc/netcvod.h/cpp}). I don't know the purpose of this (maybe responsible for managing thread-local data and communication between threads).
+\item \lst{nrn_setup()}\\
+    Before calling \lst{nrn_setup()}, the configuration file files.dat is read to see how many and which cells are to be loaded for simulation. The cells are assigned in a round-robin fashion between the MPI ranks. Then \lst{nrn_setup()} is called with a list of cell ids, to load the cell data from disk.
+\item \lst{BBS_netpar_mindelay()} and \lst{mk_spikevec_buffer()}\\
+    The mindelay and spike buffer size are configured. This is to do with spike communication (not yet understood).
+\item \lst{BBS_netpar_solve()} \\
+    The time stepping code. The focus of this report.
+\item \lst{output_spikes()} \\
+    Write spike information to disk.
+\end{enumerate}
+
+%-------------------------------------------------------------------------------
+\begin{table}[htp!]
+    \centering
+%-------------------------------------------------------------------------------
+\begin{tabular}{lrr}
+\hline
+section                    &    wall time (s) & contribution \% \\
+\hline
+\lst{mk_mech()}            &    0.01   &    0.0\\
+\lst{mk_netcvode()}        &    0.00   &    0.0\\
+\lst{nrn_setup()}          &    0.69   &    0.2\\
+mindelay/spike buffer      &    0.15   &    0.0\\
+\lst{BBS_netpar_solve()}   &    388.93 &   99.8\\
+\lst{output_spikes()}      &    0.01   &    0.0\\
+\hline
+\end{tabular}
+%-------------------------------------------------------------------------------
+\label{tbl:wallmain}
+\caption{Breakdown of wall time for TEST2 data set running on one node of Piz Daint, with 1 cell per core.}
+\end{table}
+%-------------------------------------------------------------------------------
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Drilling down}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The time stepping and all computation associated with it are performed in the \lst{BBS_netpar_solve()} routine. A backtrace of the call tree from \lst{BBS_netpar_solve()} to \lst{nrn_fixed_step_thread()}, where 100\% of the computation is performed, is shown in \fig{fig:bbsnetpar}. The \lst{nrn_fixed_step_group*} loop over time steps and threads, while the.
+
+\begin{figure}[htp!]
+\centering
+\includegraphics[width=\textwidth]{./images/bbs_netpar_solve.pdf}
+\caption{backtrace to the main computational routine.}
+\label{fig:bbsnetpar}
+\end{figure}
+
+Each MPI rank has a set of cells assigned to it in a round robin fashion during the initialization phase (in the call to \lst{nrn_setup()} in \lst{main()}). The cells are then assigned to a \lst{NrnThread} on each MPI rank. An abreviated definition of is given in \fig{lst:NrnThread}
+\begin{figure}
+\begin{lstlisting}
+struct NrnThread {
+  // list of mechanisms
+  NrnThreadMembList *tml;
+
+  int ncell;        // number of cells
+  int end;          // number of segments
+  double *_data;    // data for all segment values
+
+  // arrays holding matrix system values
+  double *_actual_rhs;
+  double *_actual_d;
+  double *_actual_a;
+  ...
+  // area of each segment
+  double *_actual_area;
+  // parent index of segments
+  int *_v_parent_index;
+};
+\end{lstlisting}
+\label{lst:NrnThread}
+\caption{Definition of }
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{The Algorithm}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The call to \lst{nrn_fixed_step_thread()} implements a single time step for the set of cells on a thread, and accounts for XX of the time to solution.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Spatial Discretization and Cable Equation}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\todo{describe generic PDE in 1D}
+
+\todo{introduce tree structure and numbering}
+
+\todo{solution of the linear system}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Building the Linear System}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\todo{there are two parts of \lst{nrn_fixed_step_thread}, spatial/temporal computation and the spike communication. We focus on compute, because as we will see later, this completely dominates. Understanding communication is future work.}
+
+\todo{pseudo-code and walk through}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Benchmarking}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\todo{describe adding Papi counters to instrument parts of code. Show basic timing results in \fig{fig:calltree}.}
+
+\begin{figure}[htp!]
+\centering
+\includegraphics[width=\textwidth]{./images/calltree.pdf}
+\caption{Calltree and percentage of wall time contribution for the main computational algorithm. Branches marked in blue indicate a significant contribution to wall time.}
+\label{fig:calltree}
+\end{figure}
 
 \end{document}

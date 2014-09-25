@@ -1,0 +1,42 @@
+Digraph G{
+    // draw index down lhs
+    {
+        node [shape=none]
+        thread -> fadvance -> nrniv -> hoc
+        hoc [shape=box, style=bold, fontcolor=Red, color=Red] // use box for everything
+    }
+
+    // describe the heavy edges
+    node [shape=box, style=bold, fontcolor=Blue, color=Blue] // use box for everything
+    edge [color=Blue, style=filled, fontcolor=Blue]
+    fixed_step -> setup_tree_matrix  [label="57%"]
+    setup_tree_matrix -> rhs         [label="45%"]
+    setup_tree_matrix -> lhs         [label="11%"]
+    fixed_step -> nonvint            [label="42%"]
+    //node [shape=box, style=bold, fontcolor=Red, color=Red] // use box for everything
+    rhs        -> current            [label="45%"]
+    lhs        -> jacob              [label="11%"]
+    nonvint    -> state              [label="42%"]
+
+    // describe the light edges
+    // of the following, all are implemented in "nrnoc" path, not in .hoc files
+    //  as such they should not be on the same level as things like jacob and state
+    node [style=solid, fontcolor=Black, color=Black]
+    edge [color=Black, fontcolor=Black, style=dashed]
+    rhs        -> rhs_update        [label="<1%"]
+    lhs        -> cap_jacob         [label="0%"]
+    lhs        -> lhs_update        [label="<1%"]
+    fixed_step -> update            [label="<1%"]
+    fixed_step -> matrix_solve      [label="<1%"]
+    fixed_step -> second_order_cur  [label="0%"]
+
+    node [style=solid, fontcolor=Green, color=Green]
+    edge [color=Green, fontcolor=Green, style=dashed]
+    fixed_step -> other             [label="1%"]
+
+    // set the levels
+    {rank = same; thread; fixed_step};
+    {rank = same; fadvance; setup_tree_matrix; update; matrix_solve; second_order_cur; nonvint; other};
+    {rank = same; nrniv; rhs_update; cap_jacob; lhs_update};
+    {rank = same; hoc; current; jacob; state};
+}

@@ -1,12 +1,14 @@
-report.pdf : $(TEXFILES)
-	pdflatex report
+IMAGES=images/*.pdf
+TEXFILES=report.tex
+
+report.pdf : $(TEXFILES) $(IMAGES)
+	pdflatex --shell-escape report
 
 force : report.pdf
-	pdflatex report
+	pdflatex --shell-escape report
 
 open : report.pdf
 	evince report.pdf
-#	open report.pdf
 
 clean:
 	rm report.pdf
