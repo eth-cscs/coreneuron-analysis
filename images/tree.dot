@@ -1,0 +1,12 @@
+Digraph G{
+    node [shape=circle, fontcolor=Blue, color=Blue, width=0.3, fixedsize=true]; // use box for everything
+    edge [arrowhead=none, splines=false];
+
+    rankdir=LR;
+    n1 -> n0 [label="s0"];
+    n0 -> n2 [label="s1"];
+    n2 -> n3 [label="s2"];
+    n2 -> n4 [label="s3"];
+    n0 -> n5 [label="s4"];
+}
+

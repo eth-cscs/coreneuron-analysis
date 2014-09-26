@@ -2,7 +2,7 @@
 
 \usepackage[pdftex]{graphicx}
 \usepackage[cmex10]{amsmath}
-\usepackage{color}
+\usepackage[usenames,dvipsnames]{color}
 \usepackage{xspace}
 \usepackage{dot2texi}
 \usepackage{tikz}
@@ -14,7 +14,7 @@
 \usepackage{url}
 \usepackage{listings}
 
-\newcommand{\todo}[1]{\textbf{\textcolor{blue}{TODO: #1}}} % add a comment to the article
+\newcommand{\todo}[1]{\textbf{\textcolor{Blue}{TODO: #1}}} % add a comment to the article
 \newcommand{\lst}[1]{\lstinline!#1!} % add a comment to the article
 \newcommand{\fig}[1]{Fig.~\ref{#1}} % add a comment to the article
 \newcommand{\tbl}[1]{Tbl.~\ref{#1}} % add a comment to the article
@@ -24,8 +24,8 @@
     language=[ANSI]C++,
     numbers=left,
     basicstyle=\small\ttfamily,
-    keywordstyle=\color{blue}\small\ttfamily\bf,
-    commentstyle=\color{red}\small\ttfamily\bf
+    keywordstyle=\color{BlueViolet}\small\ttfamily\bf,
+    commentstyle=\color{OliveGreen}\small\ttfamily
 }
 
 \begin{document}
@@ -223,6 +223,7 @@ struct NrnThread {
   int ncell;        // number of cells
   int end;          // number of segments
   double *_data;    // data for all segment values
+  ...               // other data fields
 
   // arrays holding matrix system values
   double *_actual_rhs;
@@ -236,7 +237,7 @@ struct NrnThread {
 };
 \end{lstlisting}
 \label{lst:NrnThread}
-\caption{Definition of }
+\caption{The definition of the \lst{NrnThread} data type from \file{nrnoc/multicore.h}. Note that many data members have been removed, with just some fields of interest included.}
 \end{figure}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -250,6 +251,14 @@ The call to \lst{nrn_fixed_step_thread()} implements a single time step for the 
 \todo{describe generic PDE in 1D}
 
 \todo{introduce tree structure and numbering}
+
+\begin{figure}[htp!]
+\centering
+\includegraphics[width=0.75\textwidth]{./images/tree.pdf}
+\caption{Numbering of nodes and edges for Hines algorithm.}
+\label{fig:tree}
+\end{figure}
+
 
 \todo{solution of the linear system}
 

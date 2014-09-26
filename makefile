@@ -11,7 +11,7 @@ open : report.pdf
 	evince report.pdf
 
 clean:
-	rm report.pdf
-	rm report.aux
-	rm report.log
+	rm -f report.pdf
+	rm -f *.aux
+	rm -f *.log
 
