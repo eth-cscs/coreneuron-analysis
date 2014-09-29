@@ -54,13 +54,21 @@ The version of CoreBluron that was released for the PCP is derived directly from
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 The code in its current form is a mixture of C and C++.
 
+It must be noted that the code base is currently very challenging to understand and benchmark. It is derived directly from the Bluron/Neuron code base. This is an old code base, that has grown organically over a period of more tha 20 years. As such there are very many opportunities to simplify and improve the code using modern programming languages and development techniqies.
+
+To use both CPUs and accelerators (e.g. GPU and MIC) effectively, parts of the code will have to be refactored, or rewritten significantly. Rewriting will be challenging, given the difficulty of understanding the current code, which is a prerequisite for rewriting the code. Developing documentation of the algorithms as they are currently implemented is essential if the code is to be refactored.
+
+From early work with the code base, the majority of wall time for the example circuits release for the PCP is spent in a relatively small set of code: the \lst{nrnoc} solver implementation, and the mechanisms defined in \lst{/mecb/cfiles}. The code in its current form might be quite complicated, however the algorithms themselves are relatively straightfoward.
+
+An aim of this report is as a first attempt at describing the algorithms clearly, to make it possible to reason about how them without getting bogged down with the code.
+
 %-------------------------------------------------------------
 \subsection{Code Issues}
 %-------------------------------------------------------------
-It must be noted that the current form of the code is poor from a sofware engineering point of view:
+Some of the anti-patterns that make understanding the code difficult are:
 \begin{itemize}
     \item
-        There are many global variables. Static global variables are used for scoping within a translation unit.
+        There are many global variables. With many static symbols used for scoping within a translation units, which makes understanding where variables are defined and used challenging.
     \item
         The use of preprocessor \lst{#define} makes the code very difficult to reason about. Many variable names are redefined, which obscures the meaning of the code. There are also many ``magic numbers'' that are defined on differently in different translation units.
     \item
@@ -68,12 +76,9 @@ It must be noted that the current form of the code is poor from a sofware engine
     \item
         overly complicated data structures that make it very difficult for both humans and compilers to reason about the code. As a result there are a lot of lost opportunities for optimization for the compiler.
     \item
-        Poor commenting/documentation.
+        Poor (non-existant in places) comments and naming of variables.
 \end{itemize}
 
-It should be noted that in its current state the code has been taken directly from the Bluron code base, and that the plan is to rewrite the code using modern development practices. However, this will prove challenging, given the difficulty of understanding the current code, which is a prerequisite for rewriting the code. Developing documentation of the algorithms as they are currently implemented is essential if the code is to be refactored.
-
-To use the GPU and MIC effectively (even to use CPU effectively), the code will have to be refactored, or rewritten significantly.
 %-------------------------------------------------------------
 \subsection{Code Layout}
 %-------------------------------------------------------------
