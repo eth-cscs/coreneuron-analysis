@@ -3,10 +3,10 @@ Digraph G{
     edge [arrowhead=none, splines=false];
 
     rankdir=LR;
-    n1 -> n0 [label="s0"];
-    n0 -> n2 [label="s1"];
-    n2 -> n3 [label="s2"];
-    n2 -> n4 [label="s3"];
-    n0 -> n5 [label="s4"];
+    n2 -> n1 [label="s1"];
+    n1 -> n3 [label="s2"];
+    n3 -> n4 [label="s3"];
+    n3 -> n5 [label="s4"];
+    n1 -> n6 [label="s5"];
 }
 

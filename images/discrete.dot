@@ -1,0 +1,74 @@
+Digraph G{
+    node [shape=point, fontcolor=Black, color=Black, width=0.2]; // use box for everything
+    edge [arrowhead=none, splines=false];
+    forcelabels=true;
+
+    N0   [xlabel="1", color=Blue, fontcolor=Blue, width=0.25]
+    s1_4 [xlabel="2"]
+    s1_3 [xlabel="3"]
+    s1_2 [xlabel="4"]
+    s1_1 [xlabel="5"]
+
+    N1   [xlabel="6", color=Blue, fontcolor=Blue, width=0.25]
+
+    s2_1 [xlabel="7"]
+    s2_2 [xlabel="8"]
+    s2_3 [xlabel="9"]
+    s2_4 [xlabel="10"]
+
+    N2   [xlabel="11", color=Blue, fontcolor=Blue, width=0.25]
+
+    s3_1 [xlabel="12"]
+    s3_2 [xlabel="13"]
+    s3_3 [xlabel="14"]
+    s3_4 [xlabel="15"]
+
+    N3   [xlabel="16", color=Blue, fontcolor=Blue, width=0.25]
+
+    s4_1 [xlabel="17"]
+    s4_2 [xlabel="18"]
+    s4_3 [xlabel="19"]
+    s4_4 [xlabel="20"]
+
+    N4   [xlabel="21", color=Blue, fontcolor=Blue, width=0.25]
+
+    s5_1 [xlabel="22"]
+    s5_2 [xlabel="23"]
+    s5_3 [xlabel="24"]
+    s5_4 [xlabel="25"]
+
+    N5   [xlabel="26", color=Blue, fontcolor=Blue, width=0.25]
+
+    rankdir=LR;
+    //N1 -> N0
+    N1 -> s1_1
+    s1_1 -> s1_2
+    s1_2 -> s1_3
+    s1_3 -> s1_4
+    s1_4 -> N0
+    //N0 -> N2
+    N0 -> s2_1
+    s2_1 -> s2_2
+    s2_2 -> s2_3
+    s2_3 -> s2_4
+    s2_4 -> N2
+    //N2 -> N3
+    N2 -> s3_1
+    s3_1 -> s3_2
+    s3_2 -> s3_3
+    s3_3 -> s3_4
+    s3_4 -> N3
+    //N2 -> N4
+    N2 -> s4_1
+    s4_1 -> s4_2
+    s4_2 -> s4_3
+    s4_3 -> s4_4
+    s4_4 -> N4
+    //N0 -> N5
+    N0 -> s5_1
+    s5_1 -> s5_2
+    s5_2 -> s5_3
+    s5_3 -> s5_4
+    s5_4 -> N5
+}
+
