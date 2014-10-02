@@ -8,7 +8,7 @@ force : report.pdf
 	pdflatex --shell-escape report
 
 open : report.pdf
-	evince report.pdf
+	open report.pdf
 
 clean:
 	rm -f report.pdf

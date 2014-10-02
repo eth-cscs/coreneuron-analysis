@@ -36,8 +36,10 @@
 \newcommand{\attplus}[1]{{#1}^{n+1}} % add a comment to the article
 \newcommand{\attplushalf}[1]{{#1}^{n+\frac{1}{2}}} % add a comment to the article
 
+./2013/texmf-dist/tex/latex/listings/lstlang
 \lstset{
     language=[ANSI]C++,
+    %language=julia,
     numbers=left,
     basicstyle=\small\ttfamily,
     keywordstyle=\color{BlueViolet}\small\ttfamily\bf,
@@ -236,6 +238,42 @@ The time stepping and all computation associated with it are performed in the \l
 
 Each MPI rank has a set of cells assigned to it in a round robin fashion during the initialization phase (in the call to \lst{nrn_setup()} in \lst{main()}). The cells are then assigned to a \lst{NrnThread} on each MPI rank. An abreviated definition of is given in \fig{lst:NrnThread}
 \begin{figure}
+\begin{lstlisting} [language=julia]
+# solve linear system using Hines algorithm
+# the solution is stored in the rhs vector on return
+function solve!(A::tridiag, rhs, net::network)
+  n = length(rhs)
+
+  # eliminate upper triangle
+  for i = n:-1:2
+    k = net.parent_indexes[i]
+
+    # divide row k by dii
+    dii = A.d[i]
+    A.b[i] /= dii
+    rhs[i] /= dii
+
+    # adjust row k
+    aki = A.a[i]
+    A.d[k] -= aki*A.b[i]
+    rhs[k] -= aki*rhs[i]
+  end
+
+  # normalize d1
+  rhs[1] /= A.d[1]
+
+  # forward substitution
+  for i=2:n
+    k = net.parent_indexes[i]
+    rhs[i] -= A.b[i] * rhs[k]
+  end
+
+  return None
+end
+\end{lstlisting}
+\end{figure}
+
+\begin{figure}
 \begin{lstlisting}
 struct NrnThread {
   // list of mechanisms
@@ -279,22 +317,19 @@ The spatial and temporal discretization used in Neuron is finite difference with
 
 \emph{Finite Difference Methods in Heat Transfer, Second Edition} By Necati Ozisik (1994) gives the following finite difference discretization
 \begin{align}
-    &\dx \left(\at{C} \frac{\attplus{\at{V}} - \att{\at{V}}}{\dt} + \attplushalf{\at{I}} \right)
-    =\nonumber \\
-    &\at{f}
-        \left\{
-            \theta
+    \dx \left(\at{C} \frac{\attplus{\at{V}} - \att{\at{V}}}{\dt} + \attplushalf{\at{I}} \right)
+    &=\nonumber \\
+    & \at{f} \theta
             \left[
                 \atminushalf{g} \frac{\atminus{V}^{n+1}-\at{V}^{n+1}}{\dx}
               + \atplushalf{g}  \frac{\atplus{V}^{n+1}-\at{V}^{n+1}}{\dx}
-            \right]
-    +
-            (1-\theta)
+            \right] \nonumber \\
+            + & \at{f} (1-\theta)
             \left[
                 \atminushalf{g} \frac{\atminus{V}^{n}-\at{V}^{n}}{\dx}
               + \atplushalf{g}  \frac{\atplus{V}^{n}-\at{V}^{n}}{\dx}
             \right]
-        \right\} \label{eq:cableDiscretization}
+        \label{eq:cableDiscretization}
 \end{align}
 
 where the parameter $\theta$ can be used to determine the time stepping scheme ($\theta=0$ explicit, $\theta=1$ implicit, $\theta=1/2$ Crank-Nicholson).
@@ -348,29 +383,72 @@ It is important to note that the coefficients in the linear system are constant 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 In the previous subsection a one-dimensional model and it's discretization were described, while ignoring the impact of boundary conditions. We will now extend this description to handle branching, whereby the domain is composed of a series of one-dimensional \emph{sections}, that are joined at branch points to form a tree.
 
+A small tree structure is illustrated in \fig{fig:tree}(a). It is important to note that the graph formed by the branching sections is a true tree, i.e. it has no circuits (once a section has branched, the branches can not ``rejoin'').
+
 \begin{figure}[htp!]
 \centering
 \includegraphics[width=0.6\textwidth]{./images/tree.pdf}
 \\{\normalsize (a)}\\
+\includegraphics[width=\textwidth]{./images/discrete_a.pdf}
+\includegraphics[width=\textwidth]{./images/discrete_b.pdf}
+\includegraphics[width=\textwidth]{./images/discrete_c.pdf}
+\includegraphics[width=\textwidth]{./images/discrete_d.pdf}
 \includegraphics[width=\textwidth]{./images/discrete.pdf}
 \\{\normalsize (b)}
 \caption{Numbering of nodes and edges for Hines algorithm. (a) The high level branch and connection numbering scheme, with the branch nodes and sections numbered; (b) the numbering of individual nodes in the fully discretized domain with 5 segments per section.}
 \label{fig:tree}
 \end{figure}
 
-A small tree structure is illustrated in \fig{fig:tree}(a). It is important to note that the graph formed by the branching sections is a true tree, i.e. it has no circuits (once a section has branched, the branches can not ``rejoin'').
-
-Here we define some terms used in discussing the tree structure:
+Some terms used in discussing the tree structure in \fig{fig:tree} are:
 \begin{itemize}
         \item \textbf{section} a branch in the tree structure, which corresponds to the one-dimensional line segmant between branch points. These are numbered $s*$ in \fig{fig:tree}(a).
         \item \textbf{branch} same definition as section.
         \item \textbf{node} a point in the spatial discretization. These are numbered in \fig{fig:tree}(b).
         \item \textbf{branch node} a node where two branchmes join. These are the blue points denoted $n*$ \fig{fig:tree}(a).
+        \item \textbf{terminal branch} a branch that is one node that has one end that is connected to no other branches.
         \item \textbf{terminal node} a node that lies at the end of a branch that connects to no other branches. These correspond to $n1$, $n4$, $n5$ and $n6$ in \fig{fig:tree}(a).
 \end{itemize}
 
-The discretization on such a tree proceeds as follows.
+The first step of the spatial discretixation is to discretize each one-dimensional section. Then the nodes have to be numbered. Neuron uses a node numbering scheme that gives the matrix a sparsity structure that allows the linear system to be solved in linear time, equivalent to Thomas algorithm.
 
+The numbering scheme starts by numbering the \emph{branch nodes} and \emph{sections} as illustrated in \fig{fig:tree}(a).
+A \emph{terminal branch} of the tree is selected, and its nodes are numbered with the terminal node last.
+
+
+\begin{itemize}
+\item
+    A \emph{terminal branch} of the tree is selected, and its nodes are numbered with the terminal node last.
+    The node numbered 1 is referred to as the \emph{root node} of the tree, and is shown in red in \fig{fig:tree}(b).
+\item
+    The tree is then traversed, with the nodes on each individual edge numbered such that the node index is higher for nodes further from the root. The sequence of steps illustrated in \fig{fig:tree}(b) shows the numbering applied in this manner as each branch of the tree is visited.
+\item
+    Every node in the tree $i$ has exactly one parent, except for the root node. In all cases the index of the parent $p_i$ is less than the index of the node, i.e. $p_i<i,~\forall i>1\leq N$, where $N$ is the total number of nodes.
+\item
+    every node non-terminal node has at least one child, with branch nodes having one child for each branch in their subtree.
+\item
+    It is only necessary to store the parent indexes, the $p_i$ values, and not the child indexes.
+\item
+    The sparsity pattern of the linear system associated with this numbering has the following properties:
+    \begin{itemize}
+    \item
+        The sparsity pattern is symmetric.
+    \item
+        the diagonal values are all nonzero.
+    \item
+        their is exactly one off diagonal value in each row of the lower triangle at $a_ik$, where $k=p_i$.
+    \item
+        their is exactly one off diagonal value in each column of the upper triangle at $a_ki$, where $k=p_i$.
+    \end{itemize}
+\item
+    With this sparsity pattern, it is possible to store the matrix with three vectores, $\vec{a}$, $\vec{b}$ and $\vec{c}$, where:
+    \begin{align}
+        a_i &= A_{ki} \\
+        b_i &= A_{ik} \\
+        d_i &= A_{ii}
+    \end{align}
+    where $k=p_i$.
+\end{itemize}
+In this manner, all nodes are 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Building the Linear System}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

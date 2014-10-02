@@ -17,27 +17,28 @@ Digraph G{
     s2_4 [xlabel="10"]
 
     N2   [xlabel="11", color=Blue, fontcolor=Blue, width=0.25]
+    node [shape=point, fontcolor=Black, color=gray, width=0.2]; // use box for everything
 
-    s3_1 [xlabel="12"]
-    s3_2 [xlabel="13"]
-    s3_3 [xlabel="14"]
-    s3_4 [xlabel="15"]
+    s3_1
+    s3_2
+    s3_3
+    s3_4
 
-    N3   [xlabel="16", color=Blue, fontcolor=Blue, width=0.25]
+    N3
 
-    s4_1 [xlabel="17"]
-    s4_2 [xlabel="18"]
-    s4_3 [xlabel="19"]
-    s4_4 [xlabel="20"]
+    s4_1
+    s4_2
+    s4_3
+    s4_4
 
-    N4   [xlabel="21", color=Blue, fontcolor=Blue, width=0.25]
+    N4
 
-    s5_1 [xlabel="22"]
-    s5_2 [xlabel="23"]
-    s5_3 [xlabel="24"]
-    s5_4 [xlabel="25"]
+    s5_1
+    s5_2
+    s5_3
+    s5_4
 
-    N5   [xlabel="26", color=Blue, fontcolor=Blue, width=0.25]
+    N5
 
     rankdir=LR;
     //N1 -> N0
