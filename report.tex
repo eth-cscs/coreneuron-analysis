@@ -5,7 +5,6 @@
 \usepackage[usenames,dvipsnames]{color}
 \usepackage{xspace}
 \usepackage{fullpage}
-%\usepackage{dot2texi}
 \usepackage{tikz}
 \usepackage{pgfplots}
 \usepackage{pgfplotstable}
@@ -15,36 +14,56 @@
 \usetikzlibrary{pgfplots.groupplots}
 \usepackage{url}
 \usepackage{listings}
+\usepackage{framed}
 
-\newcommand{\todo}[1]{\textbf{\textcolor{Blue}{TODO: #1}}} % add a comment to the article
-\newcommand{\lst}[1]{\lstinline!#1!} % add a comment to the article
-\newcommand{\fig}[1]{Fig.~\ref{#1}} % add a comment to the article
-\newcommand{\eq}[1]{(\ref{#1})} % add a comment to the article
-\newcommand{\tbl}[1]{Tbl.~\ref{#1}} % add a comment to the article
-\newcommand{\file}[1]{\lstinline[basicstyle=\normalsize,]!#1!} % add a comment to the article
-\newcommand{\pder}[2]{\frac{\partial{#1}}{\partial{#2}}} % add a comment to the article
-\newcommand{\neuron}{CoreBluron} % add a comment to the article
-\newcommand{\dx}{{\Delta x}} % add a comment to the article
-\newcommand{\dt}{{\Delta t}} % add a comment to the article
-\newcommand{\at}[1]{{#1}_{i}} % add a comment to the article
-\newcommand{\atplus}[1]{{#1}_{i+1}} % add a comment to the article
-\newcommand{\atminus}[1]{{#1}_{i-1}} % add a comment to the article
-\newcommand{\atplushalf}[1]{{#1}_{i+\frac{1}{2}}} % add a comment to the article
-\newcommand{\atminushalf}[1]{{#1}_{i-\frac{1}{2}}} % add a comment to the article
+\newcommand{\todo}[1]{\textbf{\textcolor{Blue}{TODO: #1}}}
+\newcommand{\lst}[1]{\lstinline!#1!}
+\newcommand{\fig}[1]{Fig.~\ref{#1}}
+\newcommand{\eq}[1]{(\ref{#1})}
+\newcommand{\ap}[1]{Appendix~\ref{#1}}
+\newcommand{\tbl}[1]{Tbl.~\ref{#1}}
+\newcommand{\file}[1]{\lstinline[basicstyle=\normalsize,]!#1!}
+\newcommand{\pder}[2]{\frac{\partial{#1}}{\partial{#2}}}
+\newcommand{\neuron}{CoreBluron}
+\newcommand{\dx}{{\Delta x}}
+\newcommand{\dt}{{\Delta t}}
+\newcommand{\at}[1]{{#1}_{i}}
+\newcommand{\atplus}[1]{{#1}_{i+1}}
+\newcommand{\atminus}[1]{{#1}_{i-1}}
+\newcommand{\atplushalf}[1]{{#1}_{i+\frac{1}{2}}}
+\newcommand{\atminushalf}[1]{{#1}_{i-\frac{1}{2}}}
 \newcommand{\vv}[1]{\mathbf{#1}}
-\newcommand{\att}[1]{{#1}^{n}} % add a comment to the article
-\newcommand{\attplus}[1]{{#1}^{n+1}} % add a comment to the article
-\newcommand{\attplushalf}[1]{{#1}^{n+\frac{1}{2}}} % add a comment to the article
+\newcommand{\att}[1]{{#1}^{n}}
+\newcommand{\attplus}[1]{{#1}^{n+1}}
+\newcommand{\attplushalf}[1]{{#1}^{n+\frac{1}{2}}}
 
-./2013/texmf-dist/tex/latex/listings/lstlang
+\lstdefinelanguage{julia}
+{
+    morekeywords = {
+        if, elseif, else,
+        for, while, end, in, using,
+        type, function, return, yieldto, try, catch, error, throw, begin, quote,
+        Int, Int32, Int64, Float, Float32, Float64, Array
+    },
+    sensitive = true,
+    morecomment=[l]\#,
+    morestring=[b]",
+    morestring=[b]',
+    moredelim=*[directive]@,
+    moredirectives={assert, time, eval} % macros
+}[keywords,comments,strings,directives]
+
+
 \lstset{
     language=[ANSI]C++,
-    %language=julia,
-    numbers=left,
+    %numbers=left,
     basicstyle=\small\ttfamily,
-    keywordstyle=\color{BlueViolet}\small\ttfamily\bf,
+    identifierstyle=\color{Blue}\small\ttfamily,
+    keywordstyle=\color{Red}\small\ttfamily\bf,
     commentstyle=\color{OliveGreen}\small\ttfamily
 }
+
+\definecolor{shadecolor}{rgb}{0.8,0.8,0.8}
 
 \begin{document}
 
@@ -70,6 +89,7 @@ The version of CoreBluron that was released for the PCP is derived directly from
 \section{The Code}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 The code in its current form is a mixture of C and C++.
+
 
 It must be noted that the code base is currently very challenging to understand and benchmark. It is derived directly from the Bluron/Neuron code base. This is an old code base, that has grown organically over a period of more tha 20 years. As such there are very many opportunities to simplify and improve the code using modern programming languages and development techniqies.
 
@@ -237,43 +257,9 @@ The time stepping and all computation associated with it are performed in the \l
 \end{figure}
 
 Each MPI rank has a set of cells assigned to it in a round robin fashion during the initialization phase (in the call to \lst{nrn_setup()} in \lst{main()}). The cells are then assigned to a \lst{NrnThread} on each MPI rank. An abreviated definition of is given in \fig{lst:NrnThread}
-\begin{figure}
-\begin{lstlisting} [language=julia]
-# solve linear system using Hines algorithm
-# the solution is stored in the rhs vector on return
-function solve!(A::tridiag, rhs, net::network)
-  n = length(rhs)
-
-  # eliminate upper triangle
-  for i = n:-1:2
-    k = net.parent_indexes[i]
-
-    # divide row k by dii
-    dii = A.d[i]
-    A.b[i] /= dii
-    rhs[i] /= dii
-
-    # adjust row k
-    aki = A.a[i]
-    A.d[k] -= aki*A.b[i]
-    rhs[k] -= aki*rhs[i]
-  end
-
-  # normalize d1
-  rhs[1] /= A.d[1]
-
-  # forward substitution
-  for i=2:n
-    k = net.parent_indexes[i]
-    rhs[i] -= A.b[i] * rhs[k]
-  end
-
-  return None
-end
-\end{lstlisting}
-\end{figure}
 
 \begin{figure}
+\begin{shaded}
 \begin{lstlisting}
 struct NrnThread {
   // list of mechanisms
@@ -295,6 +281,7 @@ struct NrnThread {
   int *_v_parent_index;
 };
 \end{lstlisting}
+\end{shaded}
 \label{lst:NrnThread}
 \caption{The definition of the \lst{NrnThread} data type from \file{nrnoc/multicore.h}. Note that many data members have been removed, with just some fields of interest included.}
 \end{figure}
@@ -409,24 +396,26 @@ Some terms used in discussing the tree structure in \fig{fig:tree} are:
         \item \textbf{terminal node} a node that lies at the end of a branch that connects to no other branches. These correspond to $n1$, $n4$, $n5$ and $n6$ in \fig{fig:tree}(a).
 \end{itemize}
 
-The first step of the spatial discretixation is to discretize each one-dimensional section. Then the nodes have to be numbered. Neuron uses a node numbering scheme that gives the matrix a sparsity structure that allows the linear system to be solved in linear time, equivalent to Thomas algorithm.
+The first step of the spatial discretixation is to discretize each one-dimensional section. Then the nodes are numbered using a scheme that gives the matrix a sparsity structure that allows the linear system to be solved in linear time, equivalent to Thomas algorithm.
 
-The numbering scheme starts by numbering the \emph{branch nodes} and \emph{sections} as illustrated in \fig{fig:tree}(a).
-A \emph{terminal branch} of the tree is selected, and its nodes are numbered with the terminal node last.
-
-
-\begin{itemize}
+The numbering scheme is as follows
+\begin{enumerate}
 \item
     A \emph{terminal branch} of the tree is selected, and its nodes are numbered with the terminal node last.
     The node numbered 1 is referred to as the \emph{root node} of the tree, and is shown in red in \fig{fig:tree}(b).
 \item
     The tree is then traversed, with the nodes on each individual edge numbered such that the node index is higher for nodes further from the root. The sequence of steps illustrated in \fig{fig:tree}(b) shows the numbering applied in this manner as each branch of the tree is visited.
+\end{enumerate}
+A data-structure and algorithm for building the tree in \fig{fig:tree} are shown in \ap{appendix:treesource}. The source code is implemented in Julia.
+
+The tree and it's corresponding matrix representation have the following properties:
+\begin{itemize}
 \item
     Every node in the tree $i$ has exactly one parent, except for the root node. In all cases the index of the parent $p_i$ is less than the index of the node, i.e. $p_i<i,~\forall i>1\leq N$, where $N$ is the total number of nodes.
 \item
     every node non-terminal node has at least one child, with branch nodes having one child for each branch in their subtree.
 \item
-    It is only necessary to store the parent indexes, the $p_i$ values, and not the child indexes.
+    It is only necessary to store the parent indexes, the $p_i$ values, for each node in the tree.
 \item
     The sparsity pattern of the linear system associated with this numbering has the following properties:
     \begin{itemize}
@@ -440,7 +429,9 @@ A \emph{terminal branch} of the tree is selected, and its nodes are numbered wit
         their is exactly one off diagonal value in each column of the upper triangle at $a_ki$, where $k=p_i$.
     \end{itemize}
 \item
-    With this sparsity pattern, it is possible to store the matrix with three vectores, $\vec{a}$, $\vec{b}$ and $\vec{c}$, where:
+    The sparsity pattern for the network in \fig{fig:tree}(b) is shown in \fig{fig:sparsity}. The pattern matrix was generated from the code in \ap{appendix:treesource}.
+\item
+    A matrix with this sparsity pattern can be stored with three vectores, $\vv{a}$, $\vv{b}$ and $\vv{c}$, where:
     \begin{align}
         a_i &= A_{ki} \\
         b_i &= A_{ik} \\
@@ -448,13 +439,44 @@ A \emph{terminal branch} of the tree is selected, and its nodes are numbered wit
     \end{align}
     where $k=p_i$.
 \end{itemize}
-In this manner, all nodes are 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Building the Linear System}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\todo{there are two parts of \lst{nrn_fixed_step_thread}, spatial/temporal computation and the spike communication. We focus on compute, because as we will see later, this completely dominates. Understanding communication is future work.}
 
-\todo{pseudo-code and walk through}
+\begin{figure}[htp!]
+\centering
+\includegraphics[width=0.5\textwidth]{./images/sparsity.pdf}
+\caption{Sparsity pattern of the matrix corresponding to the tree numbering in \fig{fig:tree}.}
+\label{fig:sparsity}
+\end{figure}
+
+
+The linear systems that arise from the discretization of the branching cable equation can be solved very efficiently, in linear $O(N)$ time, using an algorithm that is equivalent to the Thomas algorithm for solving tri-diagonal systems. This algorithm, called Hines algorithm, proceeds by eliminating the nonzero entries in the upper triangle of $A$. Recall the matrix property that there is only one non-zero value in each column of the upper triangle
+ at $A_{ki}$, which is stored in $a_i$.
+\begin{equation}
+\left(
+        \begin{array}{ccc}
+            A_{kk} & \dots      & A_{ki} \\
+        \vdots     & \ddots     & \mathbf{0} \\
+            A_{ik} & \mathbf{0} & A_{ii}
+        \end{array}
+\right)
+\text{which is stored as:}
+\left(
+        \begin{array}{ccc}
+            d_k & \dots      & a_i \\
+        \vdots  & \ddots     & \mathbf{0} \\
+            b_i & \mathbf{0} & d_i
+        \end{array}
+\right)
+\end{equation}
+The value $a_i$ and can be zeroed out with a row operation $\text{row}_k -= a_i/d_i\cdot\text{row}_i$. In practice the value of $a_i$ is not changed, and only the diagonal entry has to be modified $d_k -= a_i/d_i\cdot b_i$. The forward substitution is then used to determine the solution. The forward and backward substitution are implemented in Julia in \ap{appendix:hinessource}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Building and solving the Linear System}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The main part of the code
+
+\begin{shaded}
+\lstinputlisting [language=julia,breaklines=true] {./code/fixed_step_thread.jl}
+\end{shaded}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Benchmarking}
@@ -463,28 +485,28 @@ In this manner, all nodes are
 \begin{table}[htp!]
     \centering
 %-------------------------------------------------------------------------------
-\begin{tabular}{l|l|rrrrrrrr}
-    %\cline{2-10}
+\begin{tabular}{l|l|rrrrr}
 \multirow{2}{*}{}
-& cells-per-core  &    1  & 2     & 4     & 8  & 16  & 32  & 64  & 128 \\
-& cells-per-node  &    8  & 16    & 32    & 64 & 128 & 256 & 512 & 1024 \\
+& cells-per-core  &    1  & 2     & 4     & 8  & 16  \\
+& cells-per-node  &    8  & 16    & 32    & 64 & 128 \\
 \hline
 \multirow{8}{*}{nodes}
-&1                & 390.8 & 383.6 & 381.6 & ... & ... & ... & ... & ... \\
-&2                & 390.9 & 385.1 & 384.0 & ... & ... & ... & ... & ... \\
-&4                & 394.8 & 392.7 & 389.9 & ... & ... & ... & ... & ... \\
-&8                & 400.4 & 392.8 & 385.9 & ... & ... & ... & ... & ... \\
-&16               & 401.9 & 394.3 & 388.6 & ... & ... & ... & ... & ... \\
-&32               & 401.7 & 393.6 & 387.0 & ... & ... & ... & ... & ... \\
-&64               & 403.0 & 395.7 & 390.0 & ... & ... & ... & ... & --  \\
-&128              & 411.0 & 396.1 & 390.4 & ... & ... & ... & --  & --  \\
-&256              & 411.4 & 397.0 & 390.7 & ... & ... & --  & --  & --  \\
-&512              & 413.5 & 396.8 & 389.2 & ... & --  & --  & --  & --  \\
+&1                & 390.8 & 383.6 & 381.6 & 380.5 & 381.3\\
+&2                & 390.9 & 385.1 & 384.0 & 385.3 & 382.5\\
+&4                & 394.8 & 392.7 & 389.9 & \textcolor{blue}{194.1} & 382.6\\
+&8                & 400.4 & 392.8 & 385.9 & 382.7 & 381.0\\
+&16               & 401.9 & 394.3 & 388.6 & 384.2 & 381.8\\
+&32               & 401.7 & 393.6 & 387.0 & 383.8 & \textcolor{red}{DNF}\\
+&64               & 403.0 & 395.7 & 390.0 & 385.4 & 382.3 \\
+&128              & 411.0 & 396.1 & 390.4 & 385.5 & 378.7 \\
+&256              & 411.4 & 397.0 & 390.7 & \textcolor{blue}{195.5} & 374.9\\
+&512              & 413.5 & 396.8 & 389.2 & 377.7 & --\\
 %\hline
 \end{tabular}
+
 %-------------------------------------------------------------------------------
 \label{tbl:test2scaling}
-\caption{Wall time for TEST2 as both the number of nodes and cells-per-node are varied. Each test always use 8 cores/MPI ranks per-node.}
+\caption{Wall time for TEST2 as both the number of nodes and cells-per-node are varied. Each test always use 8 cores/MPI ranks per-node. The times in \textcolor{blue}{blue} indicate unexplained timings, and those marked \textcolor{red}{DNF} did not finish due to memory restrictions (it is not possible to run with more than 16 cells per node due to memory restrictions.)}
 \end{table}
 %-------------------------------------------------------------------------------
 
@@ -496,5 +518,32 @@ In this manner, all nodes are
 \caption{Calltree and percentage of wall time contribution for the main computational algorithm. Branches marked in blue indicate a significant contribution to wall time.}
 \label{fig:calltree}
 \end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\appendix
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\section{Source code for constructing a tree}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{appendix:treesource}
+\todo{describe code}
+\begin{shaded}
+\lstinputlisting [language=julia,breaklines=true] {./code/tree.jl}
+\end{shaded}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\section{Source code for Hines algorithm}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{appendix:hinessource}
+\todo{describe code}
+\begin{shaded}
+\lstinputlisting [language=julia,breaklines=true] {./code/hines.jl}
+\end{shaded}
 
 \end{document}
