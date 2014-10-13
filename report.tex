@@ -471,126 +471,26 @@ The value $a_i$ and can be zeroed out with a row operation $\text{row}_k -= a_i/
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Implementation of a time step}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-In this section the implementation of the code that forms and solves the matrix, which accounts for 99\% of the time to solution will be described. The algorithm themselves are quite simple, however their implementation is very difficult to understand. To make it easier to understand to understand implementation, the core routines have been rewritten in a high-level pseudo code similar to Julia.
-
-An example of the pseudo code represents the following C code
-\begin{shaded}
-\begin{lstlisting} [breaklines=true]
-for (tml = _nt->tml; tml; tml = tml->next)
-  if (memb_func[tml->index].current) {
-    mod_f_t s = memb_func[tml->index].current;
-    (*s)(_nt, tml->ml, tml->index);
-  }
-\end{lstlisting}
-\end{shaded}
-\noindent as
-\begin{shaded}
-\begin{lstlisting} [language=julia,breaklines=true]
-for mechanism in thread.mechanisms
-  mechanism.current(thread, mechanism.data)
-end
-\end{lstlisting}
-\end{shaded}
-\noindent The pseudo code should run in julia with very little modification (a similar level of clarity would be possible with well-designed C+11 code).
-
-The inner part of each time step is implemented in the function \lst{nrn_fixed_step_thread()}, in \file{nrnoc/fadvance_core.c}. The routine takes as its argument a pointer to a struct of type \lst{NtnThread}, see \fig{lst:NrnThread}, which holds state relating to a set of cells to be integrated in time.
-\begin{shaded}
-\lstinputlisting [language=julia,breaklines=true] {./code/fixed_step_thread.jl}
-\end{shaded}
-
-A breakdown of wall time for the steps in \lst{nrn_fixed_step()} is given in \fig{fig:calltree}. Some of the routines listed here have less than 1\% of wall time (including the linear system solve in \lst{nrn_solve_minimal()}), however they are discussed below because they access they have implementation details that will influence the implementation on many-core architectures (e.g. GPU and MIC).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Building matrix and RHS: \lst{setup_tree_matrix()}}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The function \lst{setup_tree_matrix()} generates the diagonal, the $d_i$ values, and the RHS vector. These tasks are performed in two separate routines, \lst{nrn_lhs()} and \lst{nrn_rhs()}.
-\begin{shaded}
-\lstinputlisting [language=julia,breaklines=true] {./code/setup_tree_matrix.jl}
-\end{shaded}
-
-Points
-\begin{itemize}
-\item
-    The array \lst{p} is an index array containing the parent node indexes.
-\item
-    The arrays \lst{VEC_*} correspond to the vectors $\vv{a}, \vv{b}, \vv{d}, \vv{v}, \vv{r}$ that define the linear system.
-\item
-    Each thread has multiple cells, each with their own tree representation. The cells are packed together, with the root node of each cell placed first in the list of all nodes, hence the definition of \lst{child_nodes} excluding indexes $1:ncells$.
-\item
-    Nearly all (i.e. 99\%) of the time in these two routines is spent in the calls to the \lst{mechanism.current()} and \lst{mechanism.jacob()} routines.
-\item
-    The matrix updates still must be considered, because there are potential race conditions in a multi-threaded/GPU implementation. For example the statement \lst{VEC_RHS[p[i]] += dv * VEC_A[i]} will lead to a race condition if two threads with the same parent node try to update the RHS vector at the same time.
-\end{itemize}
-
-The \lst{mechanism.current()} and \lst{mechanism.jacob()} routines are defined in the \file{/mech/cfiles} path, and are automatically generated from Neuron hoc DSL. \fig{fig:calltree} shows that all of the computational work in the \neuron benchmark used in this report is performed by functions from the hoc layer.
-
+\include{timestep_impl}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Benchmarking}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%-------------------------------------------------------------------------------
-\begin{table}[htp!]
-    \centering
-%-------------------------------------------------------------------------------
-\begin{tabular}{l|l|rrrrr}
-\multirow{2}{*}{}
-& cells-per-core  &    1  & 2     & 4     & 8  & 16  \\
-& cells-per-node  &    8  & 16    & 32    & 64 & 128 \\
-\hline
-\multirow{8}{*}{nodes}
-&1                & 390.8 & 383.6 & 381.6 & 380.5 & 381.3\\
-&2                & 390.9 & 385.1 & 384.0 & 385.3 & 382.5\\
-&4                & 394.8 & 392.7 & 389.9 & \textcolor{blue}{194.1} & 382.6\\
-&8                & 400.4 & 392.8 & 385.9 & 382.7 & 381.0\\
-&16               & 401.9 & 394.3 & 388.6 & 384.2 & 381.8\\
-&32               & 401.7 & 393.6 & 387.0 & 383.8 & \textcolor{red}{DNF}\\
-&64               & 403.0 & 395.7 & 390.0 & 385.4 & 382.3 \\
-&128              & 411.0 & 396.1 & 390.4 & 385.5 & 378.7 \\
-&256              & 411.4 & 397.0 & 390.7 & \textcolor{blue}{195.5} & 374.9\\
-&512              & 413.5 & 396.8 & 389.2 & 377.7 & --\\
-%\hline
-\end{tabular}
-
-%-------------------------------------------------------------------------------
-\label{tbl:test2scaling}
-\caption{Wall time for TEST2 as both the number of nodes and cells-per-node are varied. Each test always use 8 cores/MPI ranks per-node. The times in \textcolor{blue}{blue} indicate unexplained timings, and those marked \textcolor{red}{DNF} did not finish due to memory restrictions (it is not possible to run with more than 16 cells per node due to memory restrictions.)}
-\end{table}
-%-------------------------------------------------------------------------------
-
-\todo{describe adding Papi counters to instrument parts of code. Show basic timing results in \fig{fig:calltree}.}
-
-\begin{figure}[htp!]
-\centering
-\includegraphics[width=\textwidth]{./images/calltree.pdf}
-\caption{Calltree and percentage of wall time contribution for the main computational algorithm. Branches marked in blue indicate a significant contribution to wall time.}
-\label{fig:calltree}
-\end{figure}
+\include{benchmarking}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   appendices
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newpage
 \appendix
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newpage
 \section{Source code for constructing a tree}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\label{appendix:treesource}
-\todo{describe code}
-\begin{shaded}
-\lstinputlisting [language=julia,breaklines=true] {./code/tree.jl}
-\end{shaded}
-
+\include{appendix_tree}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newpage
 \section{Source code for Hines algorithm}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \label{appendix:hinessource}
-\todo{describe code}
-\begin{shaded}
-\lstinputlisting [language=julia,breaklines=true] {./code/hines.jl}
-\end{shaded}
+\include{appendix_hines}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \end{document}

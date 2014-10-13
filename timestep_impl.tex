@@ -1,0 +1,61 @@
+In this section the implementation of the code that forms and solves the matrix, which accounts for 99\% of the time to solution will be described. The algorithm themselves are quite simple, however their implementation is very difficult to understand. To make it easier to understand to understand implementation, the core routines have been rewritten in a high-level pseudo code similar to Julia.
+
+An example of the pseudo code represents the following C code
+\begin{shaded}
+\begin{lstlisting} [breaklines=true]
+for (tml = _nt->tml; tml; tml = tml->next)
+  if (memb_func[tml->index].current) {
+    mod_f_t s = memb_func[tml->index].current;
+    (*s)(_nt, tml->ml, tml->index);
+  }
+\end{lstlisting}
+\end{shaded}
+\noindent as
+\begin{shaded}
+\begin{lstlisting} [language=julia,breaklines=true]
+for mechanism in thread.mechanisms
+  mechanism.current(thread, mechanism.data)
+end
+\end{lstlisting}
+\end{shaded}
+\noindent There is a trade-off, whereby idiomatic Julia code would look like the following, but it is kept in the form above to more closely match the data flow in the C code
+\begin{shaded}
+\begin{lstlisting} [language=julia,breaklines=true]
+for mechanism in thread.mechanisms
+  current(mechanism)
+end
+\end{lstlisting}
+\end{shaded}
+\noindent Not that a similar level of clarity would be possible with well-designed C+11 code.
+
+The inner part of each time step is implemented in the function \lst{nrn_fixed_step_thread()}, in \file{nrnoc/fadvance_core.c}. The routine takes as its argument a pointer to a struct of type \lst{NtnThread}, see \fig{lst:NrnThread}, which holds state relating to a set of cells to be integrated in time.
+\begin{shaded}
+\lstinputlisting [language=julia,breaklines=true] {./code/fixed_step_thread.jl}
+\end{shaded}
+
+A breakdown of wall time for the steps in \lst{nrn_fixed_step()} is given in \fig{fig:calltree}. Some of the routines listed here have less than 1\% of wall time (including the linear system solve in \lst{nrn_solve_minimal()}), however they are discussed below because they access they have implementation details that will influence the implementation on many-core architectures (e.g. GPU and MIC).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Building matrix and RHS: \lst{setup_tree_matrix()}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The function \lst{setup_tree_matrix()} generates the diagonal, the $d_i$ values, and the RHS vector. These tasks are performed in two separate routines, \lst{nrn_lhs()} and \lst{nrn_rhs()}.
+\begin{shaded}
+\lstinputlisting [language=julia,breaklines=true] {./code/setup_tree_matrix.jl}
+\end{shaded}
+
+Points
+\begin{itemize}
+\item
+    The array \lst{p} is an index array containing the parent node indexes.
+\item
+    The arrays \lst{VEC_*} correspond to the vectors $\vv{a}, \vv{b}, \vv{d}, \vv{v}, \vv{r}$ that define the linear system.
+\item
+    Each thread has multiple cells, each with their own tree representation. The cells are packed together, with the root node of each cell placed first in the list of all nodes, hence the definition of \lst{child_nodes} excluding indexes $1:ncells$.
+\item
+    Nearly all (i.e. 99\%) of the time in these two routines is spent in the calls to the \lst{mechanism.current()} and \lst{mechanism.jacob()} routines.
+\item
+    The matrix updates still must be considered, because there are potential race conditions in a multi-threaded/GPU implementation. For example the statement \lst{VEC_RHS[p[i]] += dv * VEC_A[i]} will lead to a race condition if two threads with the same parent node try to update the RHS vector at the same time.
+\end{itemize}
+
+The \lst{mechanism.current()} and \lst{mechanism.jacob()} routines are defined in the \file{/mech/cfiles} path, and are automatically generated from Neuron hoc DSL. \fig{fig:calltree} shows that all of the computational work in the \neuron benchmark used in this report is performed by functions from the hoc layer.
+
