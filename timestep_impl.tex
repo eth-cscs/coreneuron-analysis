@@ -28,7 +28,7 @@ end
 \end{shaded}
 \noindent Not that a similar level of clarity would be possible with well-designed C+11 code.
 
-The inner part of each time step is implemented in the function \lst{nrn_fixed_step_thread()}, in \file{nrnoc/fadvance_core.c}. The routine takes as its argument a pointer to a struct of type \lst{NtnThread}, see \fig{lst:NrnThread}, which holds state relating to a set of cells to be integrated in time.
+The inner part of each time step is implemented in the function \lst{nrn_fixed_step_thread()}, in \file{nrnoc/fadvance_core.c}. The routine takes as its argument a pointer to a struct of type \lst{NrnThread}, see \fig{lst:NrnThread}, which holds state relating to a set of cells to be integrated in time.
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/fixed_step_thread.jl}
 \end{shaded}
@@ -54,10 +54,10 @@ Points
 \item
     Nearly all (i.e. 99\%) of the time in these two routines is spent in the calls to the \lst{mechanism.current()} and \lst{mechanism.jacob()} routines.
 \item
-    The matrix updates still must be considered, because there are potential race conditions in a multi-threaded/GPU implementation. For example the statement \lst{VEC_RHS[p[i]] += dv * VEC_A[i]} will lead to a race condition if two threads with the same parent node try to update the RHS vector at the same time.
+    The matrix updates still must be considered, because there are potential race conditions in a multi-threaded/GPU implementation. For example the statement \\ \lst{VEC_RHS[p[i]] += dv * VEC_A[i]} \\ will lead to a race condition if two threads with the same parent node try to update the RHS vector at the same time.
 \end{itemize}
 
-The \lst{mechanism.current()} and \lst{mechanism.jacob()} routines are defined in the \file{/mech/cfiles} path, and are automatically generated from Neuron hoc DSL. \fig{fig:calltree} shows that all of the computational work in the \neuron benchmark used in this report is performed by functions from the hoc layer. The \lst{jacob} functions are also very simple, and all have the same form (I think, there may be some exceptions)
+The \lst{mechanism.current()} and \lst{mechanism.jacob()} routines are defined in the \file{/mech/cfiles} path, and are automatically generated from Neuron hoc DSL. \fig{fig:calltree} shows that all of the computational work in the \neuron benchmark used in this report is performed by functions from the hoc layer. The \lst{jacob} functions are also very simple, and all have the same form \hilight{(I think, there may be some exceptions)}
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/jacob.jl}
 \end{shaded}
@@ -66,6 +66,7 @@ The \lst{mechanism.current} calls contribute 45\% of time to solution for the TE
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/current.jl}
 \end{shaded}
+\hilight{I don't understand the \lst{ppvar} variable, and how it is used to implement lookups like \lst{_ion_dinadv}. Any insight here would be appreciated.}
 
 The \lst{nrn_cap_jacob()} function is a very simple, illustrating a common data access pattern whereby a vector (int this case \lst{VEC_D}) is updated according to the parent node if the loop index:
 \begin{shaded}
@@ -89,7 +90,7 @@ These routines have almost no computational overhead, and are included here for 
 
 The solution to the linear system, stored in \lst{VEC_RHS} is actually the delta in solution, that is $\at{\text{RHS}} = \at{V}^{n+1} - \at{V}^{n}$. The \lst{update()} function updates the solution in \lst{VEC_V} by adding the contribution in \lst{VEC_RHS}. The \lst{update()} function is the only part of the \neuron code that successfully vectorizes, because of the stride-one data access pattern in the update.
 
-\hilight{It is not immediately obvious what the purpose of the \lst{second_order_cur()} and \lst{nrn_capacity_current()} routines is}.
+\hilight{I don't know the purpose of the \lst{second_order_cur()} and \lst{nrn_capacity_current()} routines.}
 
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/update.jl}
