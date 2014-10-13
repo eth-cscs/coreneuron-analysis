@@ -57,5 +57,67 @@ Points
     The matrix updates still must be considered, because there are potential race conditions in a multi-threaded/GPU implementation. For example the statement \lst{VEC_RHS[p[i]] += dv * VEC_A[i]} will lead to a race condition if two threads with the same parent node try to update the RHS vector at the same time.
 \end{itemize}
 
-The \lst{mechanism.current()} and \lst{mechanism.jacob()} routines are defined in the \file{/mech/cfiles} path, and are automatically generated from Neuron hoc DSL. \fig{fig:calltree} shows that all of the computational work in the \neuron benchmark used in this report is performed by functions from the hoc layer.
+The \lst{mechanism.current()} and \lst{mechanism.jacob()} routines are defined in the \file{/mech/cfiles} path, and are automatically generated from Neuron hoc DSL. \fig{fig:calltree} shows that all of the computational work in the \neuron benchmark used in this report is performed by functions from the hoc layer. The \lst{jacob} functions are also very simple, and all have the same form (I think, there may be some exceptions)
+\begin{shaded}
+\lstinputlisting [language=julia,breaklines=true] {./code/jacob.jl}
+\end{shaded}
 
+The \lst{mechanism.current} calls contribute 45\% of time to solution for the TEST2 benchmark. They are uniquely defined for each mechanism. \hilight{Is it possible to present a few different examples that have all the expected \emph{patterns} in a current implementation?}. A ``representative'' example of a \lst{current} implementation is:
+\begin{shaded}
+\lstinputlisting [language=julia,breaklines=true] {./code/current.jl}
+\end{shaded}
+
+The \lst{nrn_cap_jacob()} function is a very simple, illustrating a common data access pattern whereby a vector (int this case \lst{VEC_D}) is updated according to the parent node if the loop index:
+\begin{shaded}
+\lstinputlisting [language=julia,breaklines=true] {./code/nrn_cap_jacob.jl}
+\end{shaded}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Solving the linear system: \lst{nrn_solve_minimal()}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The solution of the linear system using Hines algorithm is straightforward, and is implemented in \file{/nrnoc/solve_core.c}.
+
+\begin{shaded}
+\lstinputlisting [language=julia,breaklines=true] {./code/nrn_solve_minimal.jl}
+\end{shaded}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Advancing the solution: \lst{update()}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+These routines have almost no computational overhead, and are included here for completeness.
+
+The solution to the linear system, stored in \lst{VEC_RHS} is actually the delta in solution, that is $\at{\text{RHS}} = \at{V}^{n+1} - \at{V}^{n}$. The \lst{update()} function updates the solution in \lst{VEC_V} by adding the contribution in \lst{VEC_RHS}. The \lst{update()} function is the only part of the \neuron code that successfully vectorizes, because of the stride-one data access pattern in the update.
+
+\hilight{It is not immediately obvious what the purpose of the \lst{second_order_cur()} and \lst{nrn_capacity_current()} routines is}.
+
+\begin{shaded}
+\lstinputlisting [language=julia,breaklines=true] {./code/update.jl}
+\end{shaded}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Updating \emph{state}: \lst{nonvint()}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The \lst{nonvint()} function is a simple lookup of the \lst{state()} function defined for each mechanism. These calls are a significant contribution to computational overheads -- greater than 40\% for the TEST2 benchmark.
+
+\begin{shaded}
+\lstinputlisting [language=julia,breaklines=true] {./code/nonvint.jl}
+\end{shaded}
+
+The \lst{state()} function implementations are derived from the \file{.hoc} implementation. These have obvious potential for vectorization, because they do not appear to have the ``parent update'' pattern in other loops. However this would require using structore of array (SoA) storage (see the next section). Below is an example of one state update -- note the many exponentials (some of which are redundant)
+
+\begin{shaded}
+\lstinputlisting [language=julia,breaklines=true] {./code/state.jl}
+\end{shaded}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Mechanism implementation from .hoc files}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+A generic interface for mechanisms is used, with the individual mechanisms defined in \file{/mech/cfils}.
+
+Neuron provides a generic interface for the implementation of user-defined mechanisms.
+
+The majority (98\%) of time is spent in the \lst{current}, \lst{jacob} and \lst{state} routines implemented in these routines.
+
+\todo{description of the poor man's vtable. Mechanism registering.}
+
+\todo{description of AoS storage. Per-thread storage. Access patterns. Possible strategies for SoA.}

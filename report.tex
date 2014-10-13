@@ -17,6 +17,7 @@
 \usepackage{framed}
 
 \newcommand{\todo}[1]{\textbf{\textcolor{Blue}{TODO: #1}}}
+\newcommand{\hilight}[1]{\textit{\textcolor{Red}{#1}}}
 \newcommand{\lst}[1]{\lstinline!#1!}
 \newcommand{\fig}[1]{Fig.~\ref{#1}}
 \newcommand{\eq}[1]{(\ref{#1})}
@@ -41,7 +42,7 @@
 {
     morekeywords = {
         if, elseif, else,
-        for, while, end, in, using,
+        for, while, end, in, using, local,
         type, function, return, yieldto, try, catch, error, throw, begin, quote,
         Int, Int32, Int64, Float, Float32, Float64, Array
     },
@@ -470,12 +471,13 @@ The linear systems that arise from the discretization of the branching cable equ
 The value $a_i$ and can be zeroed out with a row operation $\text{row}_k -= a_i/d_i\cdot\text{row}_i$. In practice the value of $a_i$ is not changed, and only the diagonal entry has to be modified $d_k -= a_i/d_i\cdot b_i$. The forward substitution is then used to determine the solution. The forward and backward substitution are implemented in Julia in \ap{appendix:hinessource}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\clearpage
 \subsection{Implementation of a time step}
-\include{timestep_impl}
+\input{timestep_impl.tex}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Benchmarking}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{benchmarking}
+\input{benchmarking.tex}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %   appendices
@@ -485,12 +487,12 @@ The value $a_i$ and can be zeroed out with a row operation $\text{row}_k -= a_i/
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newpage
 \section{Source code for constructing a tree}
-\include{appendix_tree}
+\input{appendix_tree.tex}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newpage
 \section{Source code for Hines algorithm}
 \label{appendix:hinessource}
-\include{appendix_hines}
+\input{appendix_hines.tex}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \end{document}
