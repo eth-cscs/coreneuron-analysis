@@ -157,8 +157,7 @@ The tree and it's corresponding matrix representation have the following propert
 \end{figure}
 
 
-The linear systems that arise from the discretization of the branching cable equation can be solved very efficiently, in linear $O(N)$ time, using an algorithm that is equivalent to the Thomas algorithm for solving tri-diagonal systems. This algorithm, called Hines algorithm, proceeds by eliminating the nonzero entries in the upper triangle of $A$. Recall the matrix property that there is only one non-zero value in each column of the upper triangle
- at $A_{ki}$, which is stored in $a_i$.
+These linear systems can be solved very efficiently, in linear $O(N)$ time, using an algorithm that is equivalent to the Thomas algorithm for solving tri-diagonal systems. This algorithm, called Hines algorithm, proceeds by eliminating the nonzero entries in the upper triangle of $A$. Recall the matrix property that there is only one non-zero value in each column of the upper triangle at $A_{ki}$, which is stored in $a_i$.
 \begin{equation}
 \left(
         \begin{array}{ccc}

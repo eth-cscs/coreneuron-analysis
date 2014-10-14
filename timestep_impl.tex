@@ -26,7 +26,7 @@ for mechanism in thread.mechanisms
 end
 \end{lstlisting}
 \end{shaded}
-\noindent Not that a similar level of clarity would be possible with well-designed C+11 code.
+\noindent Note that a similar level of clarity would be possible with well-designed C+11 code.
 
 The inner part of each time step is implemented in the function \lst{nrn_fixed_step_thread()}, in \file{nrnoc/fadvance_core.c}. The routine takes as its argument a pointer to a struct of type \lst{NrnThread}, see \fig{lst:NrnThread}, which holds state relating to a set of cells to be integrated in time.
 \begin{shaded}
