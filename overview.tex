@@ -1,10 +1,10 @@
 The code in its current form is a mixture of C and C++.
 
-It must be noted that the code base is currently very challenging to understand and benchmark. It is derived directly from the Bluron/Neuron code base, which has grown organically over a period of more tha 20 years. As such there are very many opportunities to simplify and improve the code using modern programming languages and development techniqies.
+It must be noted that the code base is currently very challenging to understand and benchmark. It is derived directly from the Bluron/Neuron code base, which has grown organically over more than 20 years. There are very many opportunities to simplify and improve the code using modern programming languages and development techniqies.
 
-To use both CPUs and accelerators (e.g. GPU and MIC) effectively, parts of the code will have to be refactored, or rewritten significantly. Rewriting will be challenging, given the difficulty of understanding the current code, which is a prerequisite for rewriting the code. Developing documentation of the algorithms as they are currently implemented is essential if the code is to be refactored.
+To use both CPUs and accelerators (e.g. GPU and MIC) effectively, parts of the code will have to be refactored or rewritten. The main challenge in refactoring the code is not the complexity of the algorithms, it is the difficulty of understanding the current code. Developing documentation of the algorithms as they are currently implemented is an essential first step.
 
-From early work with the code base, the majority of wall time for the example circuits release for the PCP is spent in a relatively small set of code: the \lst{nrnoc} solver implementation, and the mechanisms defined in \lst{/mecb/cfiles}. The code in its current form might be difficult to reason about, however the algorithms themselves are relatively straightfoward.
+From early work with the code base, the majority of wall time for the example circuits release for the PCP is spent in a relatively small set of code: the \lst{nrnoc} solver implementation, and the mechanisms defined in \lst{/mecb/cfiles}. Improving performance, portability and maintainability will benefit from working on the core computational API.
 
 An aim of this report is as a first attempt at describing the algorithms clearly, to make it possible to reason about how them without getting distracted by implementation details. To assist in this, many of the algorithms are presented in a pseudo-language similar to \emph{Julia}\footnote{See the website: \file{julialang.org}}, which should be familiar to users familiar with \emph{Matlab}.
 
@@ -14,15 +14,15 @@ An aim of this report is as a first attempt at describing the algorithms clearly
 Some of the anti-patterns that make understanding the code difficult are:
 \begin{itemize}
     \item
-        There are many global variables. With many static symbols used for scoping within a translation units, which makes understanding where variables are defined and used challenging.
+        There are many global variables. Static symbols are used for scoping within a translation units, which makes understanding where variables are defined and used challenging.
     \item
-        The use of preprocessor \lst{#define} makes the code very difficult to reason about. Many variable names are redefined, which obscures the meaning of the code. There are also many ``magic numbers'' that are defined on differently in different translation units.
+        The use of preprocessor \lst{#define} makes the code very difficult to reason about. Many variable names are redefined, which obscures the meaning of the code. There are also many ``magic numbers'' that are defined in separate translation units.
     \item
-        The C++ code uses new and delete keywords, sometimes forgetting to delete. Should use static arrays or STL containers depending on needs.
+        The C++ code uses \lst{new} and \lst{delete} keywords, sometimes forgetting to delete. Should use static arrays or STL containers depending on needs.
     \item
-        overly complicated data structures that make it very difficult for both humans and compilers to reason about the code. As a result there are a lot of lost opportunities for optimization for the compiler.
+        Complicated data structures that make it very difficult for both humans and compilers to reason about the code. These are a hang over from the original, more complicated, Neuron code from which \neuron is derived. Besides lack of clarity, this complexity means that there are lost opportunities for optimization by the compiler.
     \item
-        Poor (non-existant in places) comments and naming of variables.
+        Poor (non-existant in places) comments, and poor naming of variables.
 \end{itemize}
 
 %-------------------------------------------------------------

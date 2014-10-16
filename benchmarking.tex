@@ -1,3 +1,37 @@
+Here we present preliminary benchmarking results based on the benchmark datasets distributed with the PCP benchmark. The benchmark data is untarred to the paths \file{VENDORS/TEST1_CACHE} and \file{VENDORS/TEST2_DRAM}, which contain data files \file{[0-9]*.dat} that define $2^{14}=16,384$ and $2^{15}=32,768$ individual cells respectively. The number of cells to use in a simulation is set in the first line of the file \file{files.dat}. The cells are assigned to individual MPI ranks in a round-robin fashion, e.g. 32 files with 8 MPI ranks will assign $32/8=4$ cells per rank.
+
+\tbl{tbl:test2scaling} shows the wall time for performing 100 time steps with the TEST2 dataset as the number of MPI ranks and the number of cells-per-rank are varied on Piz Daint, which has a eight-core Sandy Bridge socket on each node.
+\begin{itemize}
+\item
+    There are 8 MPI ranks per node, 1 per core, so the number of MPI ranks in 8$\times$ the number of nodes.
+\item
+    The amount of memory available per node, 32\,GB limits the number of cells to 128 per node (16 per MPI rank).
+\item
+    Scaling was performed from 1 to 512 nodes (8 to 4096 MPI ranks).
+    \begin{itemize}
+    \item
+        With one cell per core, there is an efficiency of 95.6\% from 1--512 nodes
+    \item
+        As the number of cells per core is increased both wall time per cell and scaling improve, indeed it is slightly better than perfect at 100.1\% for 1--512 nodes and 8 cells per core.
+    \end{itemize}
+\item
+    There are some anomilies, with some two simulations (marked in blue) with 8 cells per core finishing in half the time of the others, and one simulation with 16 cells per core failing because it ran out of memory.
+    \begin{itemize}
+    \item
+        The cells distributed amongst the cores are not all equal in size, so some variability is expected.
+    \item
+        Modifying the total number of cells in a simulation will change the number of connections between neurons, which will modify behaviour.
+    \end{itemize}
+\item
+    From this informal analysis, scaling from 1 to 512 nodes appears to be very good.
+    \begin{itemize}
+    \item
+        Communication overheads do not appear to be significant.
+    \item
+        The focus should be on in-node performance.
+    \end{itemize}
+\end{itemize}
+
 %-------------------------------------------------------------------------------
 \begin{table}[htp!]
     \centering
@@ -21,19 +55,65 @@
 %\hline
 \end{tabular}
 
-%-------------------------------------------------------------------------------
+%*******************************************************************************
 \label{tbl:test2scaling}
 \caption{Wall time for TEST2 as both the number of nodes and cells-per-node are varied. Each test always use 8 cores/MPI ranks per-node. The times in \textcolor{blue}{blue} indicate unexplained timings, and those marked \textcolor{red}{DNF} did not finish due to memory restrictions (it is not possible to run with more than 16 cells per node due to memory restrictions.)}
 \end{table}
-%-------------------------------------------------------------------------------
+%*******************************************************************************
 
-\todo{describe adding Papi counters to instrument parts of code. Show basic timing results in \fig{fig:calltree}.}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Performance Counters}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+To profile the code I tried using Scorep and the Cray perftools, with varying success. The Scorep tool was useful, however it had very high overheads. The Cray perftools caused a segmentation fault or runtime errors.
 
+To obtain reliable results without any sampling overhead, the papi-wrap\footnote{\file{github.com/bcumming/papi-wrap}} library was used. This is a simple C++ wrapper around the Papi library for hardware counters, with a simple C API for adding samplers to source code, as shown in \fig{fig:papiinline}.
+
+\begin{figure}[htp!]
+\begin{shaded}
+\lstinputlisting [language=C++,breaklines=true] {./code/papi.cpp}
+\end{shaded}
+\caption{Steps to add papi-wrap sampling to \neuron.}
+\label{fig:papiinline}
+\end{figure}
+
+\begin{figure}[htp!]
+\begin{lstlisting} [identifierstyle=\color{Black}\small\ttfamily]
+---------------------------------------------------------------
+collector                time      %   PAPI_DP_OPS PAPI_VEC_DP
+---------------------------------------------------------------
+rhs_current          346.3654  45.10  152884436985  3990534760
+nonvint              318.4637  41.47  118203493855  5812061816
+lhs_jacob             84.7244  11.03    9945680740           0
+other                  8.7107   1.13       4664371        1548
+matrix_solve           4.0380   0.53    2097774870      770040
+rhs_update             2.4865   0.32    1320459042           0
+lhs_update             1.4597   0.19     607782930           0
+update                 0.9977   0.13     749043581   239121640
+lhs_cap_jacob          0.7062   0.09     546709757           0
+second_order_current   0.0153   0.00          8188           0
+TOTAL                767.9675
+---------------------------------------------------------------
+\end{lstlisting}
+\caption{Sample output from papi-wrap.}
+\label{fig:papisample}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Breakdown of time to solution}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%*******************************************************************************
 \begin{figure}[htp!]
 \centering
 \includegraphics[width=\textwidth]{./images/calltree.pdf}
 \caption{Calltree and percentage of wall time contribution for the main computational algorithm. Branches marked in blue indicate a significant contribution to wall time.}
 \label{fig:calltree}
 \end{figure}
+%*******************************************************************************
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Profiling With Scorep}
+\label{sec:scorep}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
