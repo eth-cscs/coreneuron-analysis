@@ -2,7 +2,7 @@ In this section the implementation of the code that forms and solves the matrix,
 
 An example of the pseudo code represents the following C code
 \begin{shaded}
-\begin{lstlisting} [breaklines=true]
+\begin{lstlisting} [language=C,breaklines=true]
 for (tml = _nt->tml; tml; tml = tml->next)
   if (memb_func[tml->index].current) {
     mod_f_t s = memb_func[tml->index].current;
@@ -14,19 +14,18 @@ for (tml = _nt->tml; tml; tml = tml->next)
 \begin{shaded}
 \begin{lstlisting} [language=julia,breaklines=true]
 for mechanism in thread.mechanisms
-  mechanism.current(thread, mechanism.data)
-end
-\end{lstlisting}
-\end{shaded}
-\noindent There is a trade-off, whereby idiomatic Julia code would look like the following, but it is kept in the form above to more closely match the data flow in the C code
-\begin{shaded}
-\begin{lstlisting} [language=julia,breaklines=true]
-for mechanism in thread.mechanisms
   current(mechanism)
 end
 \end{lstlisting}
 \end{shaded}
-\noindent Note that a similar level of clarity would be possible with well-designed C+11 code.
+\noindent Note that a similar level of clarity would be possible with well-designed C+11 code:
+\begin{shaded}
+\begin{lstlisting} [language=julia,breaklines=true]
+for( auto &mechanism : thread.mechanisms() ) {
+  mechanism.current(thread);
+}
+\end{lstlisting}
+\end{shaded}
 
 The inner part of each time step is implemented in the function \lst{nrn_fixed_step_thread()}, in \file{nrnoc/fadvance_core.c}. The routine takes as its argument a pointer to a struct of type \lst{NrnThread}, see \fig{lst:NrnThread}, which holds state relating to a set of cells to be integrated in time.
 \begin{shaded}
@@ -104,18 +103,161 @@ The \lst{nonvint()} function is a simple lookup of the \lst{state()} function de
 \lstinputlisting [language=julia,breaklines=true] {./code/nonvint.jl}
 \end{shaded}
 
-The \lst{state()} function implementations are derived from the \file{.hoc} implementation. These have obvious potential for vectorization, because they do not appear to have the ``parent update'' pattern in other loops. However this would require using structore of array (SoA) storage (see the next section). Below is an example of one state update -- note the many exponentials (some of which are redundant)
+The \lst{state()} function implementations are derived from the \file{.hoc} implementation. These have obvious potential for vectorization, because they do not appear to have the ``parent update'' pattern in other loops. However this would require using structore of array (SoA) storage (see the next section). Below is an example of one state update -- note the many exponentials (some of which are redundant, i.e. )
 
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/state.jl}
 \end{shaded}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Data Layout}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+High level overview of cell distribution across ranks and threads.
+\begin{itemize}
+\item
+    There are cells, where each cell consists of a tree of nodes.
+\item
+    There are two levels of parallelism:
+    \begin{enumerate}
+    \item
+        \textbf{MPI}: the cells are distributed between MPI ranks.
+    \item
+        \textbf{thread}: the cells on each MPI rank are further subdivided between threads.
+    \end{enumerate}
+\item
+    Each thread stores the cells assigned to it in a \lst{NrnThread} data structure (see \fig{lst:NrnThread})
+\item
+    There is one \lst{NrnThread} data structure for each thread.
+\item
+    Threading is performed using pthreads, with explicit communication of spike information between threads and between MPI processes.
+\end{itemize}
+
+\noindent
+Overview of storage of cells in one thread:
+\begin{itemize}
+\item
+    Each thread has multiple cells assigned to it.
+\item
+    For the TEST2 dataset:
+    \begin{itemize}
+    \item
+        there are around 60--70 cells per thread.
+    \item
+        each cell has of the order 400--450 nodes.
+    \item
+        each thread has 25,000--30,000 nodes.
+    \end{itemize}
+\item
+    The nodes for all cells are stored in one flat array
+    \begin{itemize}
+    \item
+        Given have $n_c$ cells and a total of $n$ nodes, the root nodes are indexed \lst{[1:n_c]}, and the rest of the nodes are indexed \lst{[n_c+1:n]}.
+    \item
+        This is evident in the loops over \lst{child_nodes=ncells+1:nnondes} and \lst{1:ncells}
+    \end{itemize}
+\end{itemize}
+
+
+\noindent
+Per thread mechanisms
+\begin{itemize}
+\item
+    In the \lst{NrnThread} data structure in \fig{}
+\end{itemize}
+
+\begin{figure}
+\begin{shaded}
+\begin{lstlisting} [language=C++]
+struct NrnThread {
+  // linked list of Memb_list (mechanisms)
+  NrnThreadMembList mechanisms;
+
+  int ncell;     // number of cells
+  int nnode;     // number of nodes
+  double *data;  // what is this data? Pramod?
+
+  double *rhs; // indexed by VEC_RHS
+  double *d;   // indexed by VEC_D
+  double *a;   // indexed by VEC_A
+  double *b;   // indexed by VEC_B
+  double *v;   // indexed by VEC_V
+  int *parent_index; // indexed by p
+};
+
+// linked list for chaining 
+struct NrnThreadMembList {
+  struct NrnThreadMembList *next;
+  struct Memb_list *mech_data; // pointer to mechanism data in memb_list[]
+  int index;                   // index for function lookup in memb_func[]
+};
+
+// holds the data for a mechanism
+struct Memb_list { // nrnoc/nrnoc_ml.h
+  // indexes of nodes with this mechanism
+  // these index into matrix (i.e. VEC_*)
+  int *nodeindices;
+  double *data;
+  int nodecount;
+};
+
+// function pointer for mechanism vtable implementation
+typedef void (*mod_f_t)(struct NrnThread *, Memb_list *, int);
+struct Memb_func { // nrnoc/membfunc.h
+  mod_f_t current;
+  mod_f_t jacob;
+  mod_f_t state;
+}
+
+// arrays holding all 
+// the NrnThread::mechanisms list indexes into here
+// registered in nrnoc/register_mech.c
+Memb_func* memb_func;
+Memb_list* memb_list;
+
+// example loop
+NrnThreadMembList* mech;
+for (mech = &thread->mechanisms; mech!=nullptr; mech = mech->next) {
+  // use index to look up functional information
+  if (memb_func[mech->index].jacob) {
+    mod_f_t s = memb_func[mech->index].jacob;
+    (*s)(thread, mech->mech_data, mech->index);
+  }
+}
+\end{lstlisting}
+\end{shaded}
+\label{lst:NrnThreadInfo}
+\caption{The thread (\lst{NrnThread}), mechanism data (\lst{Memb_list}) and mechanism functionality (\lst{Memb_func}) types. I have removed and renamed much of the members to make them better match the pseudo code, and changed others because the less said about the original name... Some C++ coding style has also been used.}
+\end{figure}{shade}
+
+\noindent
+Observations
+\begin{itemize}
+\item
+    Splitting the cells into seperate, thread-specific, data structures complicates the code. This feels like it was added at some point to facilicate threading.
+\item
+    Could be stripped away, to store all cells on a node/numa-region/device into a single pool.
+\item
+    The AoS storage is very inefficient:
+    \begin{itemize}
+    \item
+        There are no opportunities for vectorization (see \fig{fig:papisample}).
+    \item
+        Very poor cache/bandwidth utlization for loops (such as the \lst{jacob} update) where only one or two data values in a mechanism are touched. For each 64 byte cache line loaded, only 8 bytes of 64 are used.
+    \end{itemize}
+    An SoA storage would address both issues.
+\item
+    With SoA vectorization of most loops would still not be possible, because of the gather/scatter implicit in using the node indexes to read/write to the V and RHS vectors.
+    \begin{itemize}
+    \item
+        Perform scatter before computing the current, then gather after.
+    \end{itemize}
+\end{itemize}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Mechanism implementation from .hoc files}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-A generic interface for mechanisms is used, with the individual mechanisms defined in \file{/mech/cfiles}.
+\todo{Description of nuts-and-bolts of current generic interface.}
 
-Neuron provides a generic interface for the implementation of user-defined mechanisms.
+Generic interface for mechanisms is used, with the individual mechanisms defined in \file{/mech/cfiles}.
 
 The majority (98\%) of time is spent in the \lst{current}, \lst{jacob} and \lst{state} routines implemented in these routines.
 

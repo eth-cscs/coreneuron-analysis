@@ -4,11 +4,13 @@
 #define _ion_ina _nt->_data[_ppvar[1]]
 #define _ion_dinadv _nt->_data[_ppvar[2]]
 
-function current(thread, data)
-  for i in 1:data.nodecount
+function current(mechanism)
+  data = mechanism.data
+  ni   = mechansim.nodeindices
+  for i in 1:mechanism.nodecount
     _ppvar = _ml->_pdata + i * _ppsize; // TODO
 
-    local v = VEC_V[p[i]];
+    local v = VEC_V[ni[i]];
     data.ena[i] = _ion_ena; // TODO loading _p from _ppvar
     data.g[i] = nrn_current(data, v + .001);
     local dina = data.ina[i];
@@ -20,7 +22,7 @@ function current(thread, data)
 
     _ion_ina += data.ina[1] // TODO ppvar
 
-    VEC_RHS[p[i]] -= rhs;
+    VEC_RHS[ni[i]] -= rhs;
   end
 end
 

@@ -1,7 +1,9 @@
-function nrn_cap_jacob(thread, data)
-  cfac = .001 * cj
+function nrn_cap_jacob(mechanism)
+  data = mechanism.data
+  ni = mechanism.nodeindices
 
-  for i in 1:data.nodecount
-    VEC_D[p[i]] += cfac * data.cm[i]
+  cfac = .001 * cj
+  for i in 1:mechanism.nodecount
+    VEC_D[ni[i]] += cfac * data.cm[i]
   end
 end

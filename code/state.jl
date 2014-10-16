@@ -1,7 +1,10 @@
-function state(thread, data)
+# specialized on mechanism type
+function state(mechanism)
+  data = mechanism.data
+  ni   = mechanism.nodeindices
   local v
-  for i in 1:data.nodecount
-    v = VEC_V[p[i]]
+  for i in 1:mechanism.nodecount
+    v = VEC_V[ni[i]]
     data.v[i] = v
     data.ena[i] = _ion_ena # TODO pp_var
     states(data)

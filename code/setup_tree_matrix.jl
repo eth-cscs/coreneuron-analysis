@@ -9,8 +9,8 @@ function nrn_rhs(thread)
 
   VEC_RHS[:] = 0.
 
-  for mech in thread.mechanisms
-    mech.current(thread, mech.data)
+  for mechanism in thread.mechanisms
+    current(mechanism)
   end
 
   for i in child_nodes
@@ -26,13 +26,13 @@ function nrn_lhs(thread)
 
   VEC_D[:] = 0.
 
-  for mech in thread.mechanisms
-    mech.jacob(thread, mech.data)
+  for mechanism in thread.mechanisms
+    jacob(mechanism)
   end
 
   # only for the first mechanism?
   if !isempty(thread.mechanisms)
-    nrn_cap_jacob(thread, thread.mechanisms[1].data);
+    nrn_cap_jacob(thread.mechanisms[1]);
   end
 
   for i in child_nodes
