@@ -157,77 +157,46 @@ Overview of storage of cells in one thread:
     \end{itemize}
 \end{itemize}
 
-
 \noindent
-Per thread mechanisms
+Mechanisms in Neuron are implemented using the \lst{hoc} DSL, which is translated into C code.
+\neuron has the C files allready translated from the \hoc files that are used by BBP\footnote{This reduces the complexity of \neuron, decoupling \neuron from Neuron, which will make it easier modify how the mechanisms are defined.}.
+The translated mechanism definitions are in \file{mech/cfiles}, with one mechanism per C source file.
+Each file defines functions (like \lst{jacob}, \lst{current}, \lst{alloc}) and meta-data (such as the number of variables required to store a mechanism's state for a node in the tree).
 \begin{itemize}
 \item
-    In the \lst{NrnThread} data structure in \fig{}
+    The mechanism data is stored in global two arrays: \lst{Memb_list memb_list[]} and \lst{Memb_func memb_func[]}.
+    \begin{enumerate}
+    \item
+        The \lst{Memb_func} type has function pointers to the \lst{jacob}, \lst{current}, \lst{state} and other mechanism-specific functions, and other meta-data specific to the mechanism.
+    \item
+        The \lst{Memb_list} has a pointer to the per-node data, and a list of all the nodes that the mechanism is defined for.
+    \end{enumerate}
+\item
+    The implementation of a mechanism in \lst{mech/cfiles} provides has a function \lst{??} that calls the \lst{register_mech()} function, which adds the mechanisms function callbacks for \lst{jacob} etc, along with meta-data into the global arrays (see \fig{lst:register_mech}).
+\item
+    Each thread has a list of mechanisms assigned to it, which are accessed via a linked list \lst{NrnThread::mechanisms} (see \fig{lst:NrnThreadInfo} where I have changed the name \lst{tml} to \lst{mechanisms}, to better match the pseudo code.) The linked list indexes the global arrays \lst{memb_list} and \lst{memb_func} \hilight{(why not use an array instead of a linked list?)}.
+\item
+    There are many opportunities to improve the interface between the runtime (solvers etc) and user-defined mechanisms.
+    This model is well-suited to standard object-oriented design.
+    Furthermore, much of the meta-data that is current passed as runtime parameters could be stored as type-information that could help the compiler optimize more agressively.
 \end{itemize}
 
 \begin{figure}
 \begin{shaded}
-\begin{lstlisting} [language=C++]
-struct NrnThread {
-  // linked list of Memb_list (mechanisms)
-  NrnThreadMembList mechanisms;
-
-  int ncell;     // number of cells
-  int nnode;     // number of nodes
-  double *data;  // what is this data? Pramod?
-
-  double *rhs; // indexed by VEC_RHS
-  double *d;   // indexed by VEC_D
-  double *a;   // indexed by VEC_A
-  double *b;   // indexed by VEC_B
-  double *v;   // indexed by VEC_V
-  int *parent_index; // indexed by p
-};
-
-// linked list for chaining 
-struct NrnThreadMembList {
-  struct NrnThreadMembList *next;
-  struct Memb_list *mech_data; // pointer to mechanism data in memb_list[]
-  int index;                   // index for function lookup in memb_func[]
-};
-
-// holds the data for a mechanism
-struct Memb_list { // nrnoc/nrnoc_ml.h
-  // indexes of nodes with this mechanism
-  // these index into matrix (i.e. VEC_*)
-  int *nodeindices;
-  double *data;
-  int nodecount;
-};
-
-// function pointer for mechanism vtable implementation
-typedef void (*mod_f_t)(struct NrnThread *, Memb_list *, int);
-struct Memb_func { // nrnoc/membfunc.h
-  mod_f_t current;
-  mod_f_t jacob;
-  mod_f_t state;
-}
-
-// arrays holding all 
-// the NrnThread::mechanisms list indexes into here
-// registered in nrnoc/register_mech.c
-Memb_func* memb_func;
-Memb_list* memb_list;
-
-// example loop
-NrnThreadMembList* mech;
-for (mech = &thread->mechanisms; mech!=nullptr; mech = mech->next) {
-  // use index to look up functional information
-  if (memb_func[mech->index].jacob) {
-    mod_f_t s = memb_func[mech->index].jacob;
-    (*s)(thread, mech->mech_data, mech->index);
-  }
-}
-\end{lstlisting}
+\lstinputlisting [language=C++,breaklines=true] {./code/storage.cpp}
 \end{shaded}
 \label{lst:NrnThreadInfo}
 \caption{The thread (\lst{NrnThread}), mechanism data (\lst{Memb_list}) and mechanism functionality (\lst{Memb_func}) types. I have removed and renamed much of the members to make them better match the pseudo code, and changed others because the less said about the original name... Some C++ coding style has also been used.}
-\end{figure}{shade}
+\end{figure}
+
+\begin{figure}
+\begin{shaded}
+\lstinputlisting [language=C++,breaklines=true] {./code/register_mech.cpp}
+\end{shaded}
+\label{lst:register_mech}
+\caption{The routines used in registering a mechanism}
+\end{figure}
+
 
 \noindent
 Observations
@@ -237,10 +206,10 @@ Observations
 \item
     Could be stripped away, to store all cells on a node/numa-region/device into a single pool.
 \item
-    The AoS storage is very inefficient:
+    The AoS storage is inefficient:
     \begin{itemize}
     \item
-        There are no opportunities for vectorization (see \fig{fig:papisample}).
+        It doesn't vectorize (see \fig{fig:papisample}).
     \item
         Very poor cache/bandwidth utlization for loops (such as the \lst{jacob} update) where only one or two data values in a mechanism are touched. For each 64 byte cache line loaded, only 8 bytes of 64 are used.
     \end{itemize}
@@ -252,15 +221,3 @@ Observations
         Perform scatter before computing the current, then gather after.
     \end{itemize}
 \end{itemize}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Mechanism implementation from .hoc files}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\todo{Description of nuts-and-bolts of current generic interface.}
-
-Generic interface for mechanisms is used, with the individual mechanisms defined in \file{/mech/cfiles}.
-
-The majority (98\%) of time is spent in the \lst{current}, \lst{jacob} and \lst{state} routines implemented in these routines.
-
-\todo{description of the poor man's vtable. Mechanism registering.}
-
-\todo{description of AoS storage. Per-thread storage. Access patterns. Possible strategies for SoA.}
