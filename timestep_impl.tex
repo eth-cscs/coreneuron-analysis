@@ -178,15 +178,37 @@ Each file defines functions (like \lst{jacob}, \lst{current}, \lst{alloc}) and m
 \item
     There are many opportunities to improve the interface between the runtime (solvers etc) and user-defined mechanisms.
     This model is well-suited to standard object-oriented design.
-    Furthermore, much of the meta-data that is current passed as runtime parameters could be stored as type-information that could help the compiler optimize more agressively.
+    Furthermore, much of the meta-data that is currently passed as runtime parameters could be stored as type-information that could help the compiler optimize more agressively.
 \end{itemize}
+
+\noindent
+Mechanisms and their storage:
+\begin{itemize}
+\item
+    All mechanisms are not applied to different nodes. For example, the \lst{ProbAMPANDMDA_EMS} mechanism will only be applied at a subset of the nodes in a cell.
+\item
+    Each mechanism has ``state'' that is stored for each node to which it is applied. This state is a set of double-precision values (e.g. a set of values describing the time evolution of a ordinary differential equation).
+\item
+    The number of state variables varies between mechanisms, ranging from 3 to 35 values.
+\item
+    Each entry in \lst{memb_list[]} stores 
+    \begin{itemize}
+    \item
+        \lst{int nodecount}: the number of nodes to which
+    \item
+        \lst{int nodeindices[nodecount]}: the indexes of the nodes to which the mechanism is to be applied.
+    \item
+        \lst{double data[nodecount*var_per_node]}: AoS storage for the mechanism  values.
+    \end{itemize}
+\end{itemize}
+
 
 \begin{figure}
 \begin{shaded}
 \lstinputlisting [language=C++,breaklines=true] {./code/storage.cpp}
 \end{shaded}
 \label{lst:NrnThreadInfo}
-\caption{The thread (\lst{NrnThread}), mechanism data (\lst{Memb_list}) and mechanism functionality (\lst{Memb_func}) types. I have removed and renamed much of the members to make them better match the pseudo code, and changed others because the less said about the original name... Some C++ coding style has also been used.}
+\caption{The thread (\lst{NrnThread}), mechanism data (\lst{Memb_list}) and mechanism functionality (\lst{Memb_func}) types. I have removed and renamed much of the members to make them better match the pseudo code. Some C++ coding style has also been used.}
 \end{figure}
 
 \begin{figure}
@@ -197,6 +219,10 @@ Each file defines functions (like \lst{jacob}, \lst{current}, \lst{alloc}) and m
 \caption{The routines used in registering a mechanism}
 \end{figure}
 
+\begin{figure}[htp!]
+\input{images/AoSvsSoA.tex}
+\caption{The current AoS layout of mechanism parameters for all applicable nodes.}
+\end{figure}
 
 \noindent
 Observations

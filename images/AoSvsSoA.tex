@@ -1,0 +1,78 @@
+\tikzset{
+    %Define standard arrow tip
+    >=stealth',
+    % Define arrow style
+    pil/.style={
+           ->,
+           thick,
+           shorten <=2pt,
+           shorten >=2pt,}
+}
+\newcommand{\nodewidth}{1.1cm}
+\newcommand{\nodeheight}{0.5cm}
+\begin{tikzpicture}[x=0cm, y=0cm, node distance=0 cm,outer sep = 0pt]
+\tikzstyle{t0}=[draw, rectangle,  minimum height=\nodeheight, minimum width=\nodewidth, fill=red!10,anchor=south west]
+\tikzstyle{t1}=[draw, rectangle,  minimum height=\nodeheight, minimum width=\nodewidth, fill=green!10,anchor=south west]
+\tikzstyle{t2}=[draw, rectangle,  minimum height=\nodeheight, minimum width=\nodewidth, fill=blue!10,anchor=south west]
+\tikzstyle{t3}=[draw, rectangle,  minimum height=\nodeheight, minimum width=\nodewidth, fill=yellow!20,anchor=south west]
+\tikzstyle{index}=[draw, rectangle,  minimum height=\nodeheight, minimum width=\nodewidth, fill=black!10,anchor=south west]
+\tikzstyle{blank}=[draw=none, fill=none, rectangle,  minimum height=\nodeheight, minimum width=1cm, anchor=south west]
+\tikzstyle{over}=[draw=black, rectangle,  minimum height=\nodeheight, minimum width=3.3cm, anchor=south west]
+\tikzstyle{pointer}=[draw=black!50, rectangle,  minimum height=\nodeheight, minimum width=2.5cm, anchor=south west]
+
+\node[pointer] (dataAoS) at (0,0)         {\lst{dataAoS}};
+\node[t0] (m00) [right = 1cm of dataAoS] {$m_{0,0}$}
+    edge[pil,<-] (dataAoS.east);
+\node[t1] (m01) [right = of m00] {$m_{0,1}$};
+\node[t2] (m02) [right = of m01] {$m_{0,2}$};
+\node[over] (over0) [below = of m01] {node 0 params};
+\node[t0] (m10) [right = of m02] {$m_{1,0}$};
+\node[t1] (m11) [right = of m10] {$m_{1,1}$};
+\node[t2] (m12) [right = of m11] {$m_{1,2}$};
+\node[over] (over1) [below = of m11] {node 4 params};
+\node[t0] (m20) [right = of m12] {$m_{2,0}$};
+\node[t1] (m21) [right = of m20] {$m_{2,1}$};
+\node[t2] (m22) [right = of m21] {$m_{2,2}$};
+\node[blank] (blank) [right = of m22] {...};
+\node[over] (over2) [below = of m21] {node 11 params};
+\node[t0] (m30) [right = of blank] {$m_{n,0}$};
+\node[t1] (m31) [right = of m30] {$m_{n,1}$};
+\node[t2] (m32) [right = of m31] {$m_{n,2}$};\\
+\node[over] (over3) [below = of m31] {node 87 params};
+
+\node[index] (i0) [above = 0.5 cm of m00]   {$0$};
+\node[index] (i1) [right = of i0]   {$4$};
+\node[index] (i2) [right = of i1]   {$11$};
+\node[blank] (blanki) [right = of i2] {...};
+\node[index] (in) [right = of blanki]   {$87$};
+\node[pointer] (indicesAoS) [left = 1cm of i0]   {\lst{nodeindices}}
+    edge[pil,->] (i0.west);
+
+\node[index] (nnodes) [above = 0.5 cm of i0]   {$n$};
+\node[pointer] (numnodes) [left = 1cm of nnodes]   {\lst{nodecount}}
+    edge[pil,-] (nnodes.west);
+
+\node[t0]  (00) [below = 1 cm of m00] {$m_{0,0}$};
+\node[t0]  (10) [right = of 00] {$m_{1,0}$};
+\node[t0]  (20) [right = of 10] {$m_{2,0}$};
+\node[blank] (blank0) [right = of 20] {...};
+\node[t0]  (n0) [right = of blank0] {$m_{n,0}$};
+
+\node[t1]  (01) [below = 1.7 cm of m00] {$m_{0,1}$};
+\node[t1]  (11) [right = of 01] {$m_{1,1}$};
+\node[t1]  (21) [right = of 11] {$m_{2,1}$};
+\node[blank] (blank1) [right = of 21] {...};
+\node[t1]  (n1) [right = of blank1] {$m_{n,1}$};
+
+\node[t2]  (02) [below = 2.4 cm of m00] {$m_{0,2}$};
+\node[t2]  (12) [right = of 02] {$m_{1,2}$};
+\node[t2]  (22) [right = of 12] {$m_{2,2}$};
+\node[blank] (blank2) [right = of 22] {...};
+\node[t2]  (n2) [right = of blank2] {$m_{n,2}$};
+
+\node[pointer] (indicesSoA) [left = 1cm of 01]   {\lst{dataSoA[]}}
+    edge[pil,->,anchor=east] (00.west)
+    edge[pil,->] (01.west)
+    edge[pil,->] (02.west);
+
+\end{tikzpicture}
