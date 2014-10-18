@@ -9,21 +9,11 @@ From early work with the code base, the majority of wall time for the example ci
 An aim of this report is as a first attempt at describing the algorithms clearly, to make it possible to reason about how them without getting distracted by implementation details. To assist in this, many of the algorithms are presented in a pseudo-language similar to \emph{Julia}\footnote{See the website: \file{julialang.org}}, which should be familiar to users familiar with \emph{Matlab}.
 
 %-------------------------------------------------------------
-\subsection{Code Issues}
+\subsection{Understanding The Code}
 %-------------------------------------------------------------
-Some of the anti-patterns that make understanding the code difficult are:
-\begin{itemize}
-    \item
-        There are many global variables. Static symbols are used for scoping within a translation units, which makes understanding where variables are defined and used challenging.
-    \item
-        The use of preprocessor \lst{#define} makes the code very difficult to reason about. Many variable names are redefined, which obscures the meaning of the code. There are also many ``magic numbers'' that are defined in separate translation units.
-    \item
-        The C++ code uses \lst{new} and \lst{delete} keywords, sometimes forgetting to delete. Should use static arrays or STL containers depending on needs.
-    \item
-        Complicated data structures that make it very difficult for both humans and compilers to reason about the code. These are a hang over from the original, more complicated, Neuron code from which \neuron is derived. Besides lack of clarity, this complexity means that there are lost opportunities for optimization by the compiler.
-    \item
-        Poor (non-existant in places) comments, and poor naming of variables.
-\end{itemize}
+Neuron has grown organically, with new features ``bolted on'' over a long period of time (e.g. support for Python scripting, threading, etc.). Some of these features have been removed in \neuron, leaving behind some design patterns that at first confuse newcomers. One consequence is that there are some data structures that are overly-complicated for the role they currently serve, but they were part of a more complicated design before the \neuron rewrite.
+
+There are also many instances where the naming of variables, global variables, and gratuitous use of the preprocessor don't help. It is recommeneded that the code is reformatted using a tool like \file{clang-format} (espcially the automatically generated C files in \file{mech/cfiles}). Applying the preprocessor to individual files shows the origin of symbols that have been \#defined with the preprocessor (e.g. using the \file{-S} flag in \lst{gcc})
 
 %-------------------------------------------------------------
 \subsection{Code Layout}
