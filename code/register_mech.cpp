@@ -5,13 +5,11 @@
 void alloc_mech(int n) {
   memb_func_size_ = n;
   n_memb_func = n;
-  memb_func =
-   (Memb_func *)ecalloc(memb_func_size_, sizeof(Memb_func));
-  memb_list =
-   (Memb_list *)ecalloc(memb_func_size_, sizeof(Memb_list));
-  ...
+  memb_func = ecalloc(memb_func_size_, sizeof(Memb_func));
+  memb_list = ecalloc(memb_func_size_, sizeof(Memb_list));
+  // ...
 }
-// called from the .hoc generated mechanism definition
+// called from the .mod generated mechanism definition
 // registers-
 int register_mech(
         const char **m,  // strings with mech name & meta data
@@ -30,8 +28,8 @@ int register_mech(
   return type;
 }
 //////////////////////////////////////////////////
-// example registering mech in mech/cfiles/NaTs2_t.c
-// everything is static to limit visibility to this TU
+// in mech/cfiles/
+// example registering a mechanism NaTs2_t
 //////////////////////////////////////////////////
 static void nrn_alloc(), nrn_init(), nrn_state();
 static void nrn_cur(), nrn_jacob();

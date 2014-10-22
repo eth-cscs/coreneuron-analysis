@@ -1,0 +1,162 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Parallel Data Distribution}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{itemize}
+\item
+    Each neuron cell is represented as of a tree of nodes, as illustrated in \fig{fig:tree}.
+\item
+    The properties of individual cells vary significantly, so that the computational resources required to process cells varies.
+\item
+    The biggest cause of this difference is the distribution of nodes with different mechanism types.
+\item
+    The \lst{states}/\lst{rates}/\lst{current} kernels of some mechanisms have much higher arithmetic intensity than others.
+\item
+    The combination of mechanisms in a cell, which varies between different cell types, can be used a-priori estimate it's computational complexity.
+\end{itemize}
+
+\begin{itemize}
+\item
+    To ensure load balancing, the cells are grouped into groups that have roughly equivalent computational overheads during circuit generation.
+\item
+    Some groups have more cells than others to ensure that total computational effort required per group is balanced.
+\item
+    Each group of cells is stored in a separate \file{.dat} file, which are then distributed in a round-robin fashion when a \neuron simulation is started.
+\end{itemize}
+
+\begin{itemize}
+\item
+    Parallelism is implemented distributing the cells, with individual cells processed serially.
+\item
+    There are two levels of parallelism:
+    \begin{enumerate}
+    \item
+        \textbf{MPI}: the cells are distributed between MPI ranks.
+    \item
+        \textbf{thread}: the cells on each MPI rank are then assigned to a \emph{thread}.
+    \end{enumerate}
+\item
+    Each thread stores the cells assigned to it in a \lst{NrnThread} data structure (see \fig{lst:NrnThread})
+\item
+    There is one \lst{NrnThread} data structure for each thread.
+\item
+    Threading is performed using pthreads, with explicit communication of spike information between threads and between MPI processes.
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Thread Storage}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Overview of storage of cells in one thread:
+\begin{itemize}
+\item
+    Each thread has multiple cells assigned to it.
+\item
+    For the TEST2 dataset:
+    \begin{itemize}
+    \item
+        there are around 60--70 cells per thread.
+    \item
+        each cell has of the order 400--450 nodes.
+    \item
+        each thread has 25,000--30,000 nodes.
+    \end{itemize}
+\item
+    The nodes for all cells are stored in one flat array
+    \begin{itemize}
+    \item
+        Given have $n_c$ cells and a total of $n$ nodes, the root nodes are indexed \lst{[1:n_c]}, and the rest of the nodes are indexed \lst{[n_c+1:n]}.
+    \item
+        This is evident in the loops over \lst{child_nodes=ncells+1:nnondes} and \lst{1:ncells}
+    \end{itemize}
+\end{itemize}
+
+\noindent
+Mechanisms in Neuron are implemented using the \hoc DSL, which is translated into C code.
+\neuron has the C files allready translated from the \hoc files that are used by BBP\footnote{This reduces the complexity of \neuron, decoupling \neuron from Neuron, which will make it easier modify how the mechanisms are defined.}.
+The translated mechanism definitions are in \file{mech/cfiles}, with one mechanism per C source file.
+Each file defines functions (like \lst{jacob}, \lst{current}, \lst{alloc}) and meta-data (such as the number of variables required to store a mechanism's state for a node in the tree).
+\begin{itemize}
+\item
+    The mechanism data is stored in global two arrays: \lst{Memb_list memb_list[]} and \lst{Memb_func memb_func[]}.
+    \begin{enumerate}
+    \item
+        The \lst{Memb_func} type has function pointers to the \lst{jacob}, \lst{current}, \lst{state} and other mechanism-specific functions, and other meta-data specific to the mechanism.
+    \item
+        The \lst{Memb_list} has a pointer to the per-node data, and a list of all the nodes that the mechanism is defined for.
+    \end{enumerate}
+\item
+    The implementation of a mechanism in \lst{mech/cfiles} provides has a function \lst{??} that calls the \lst{register_mech()} function, which adds the mechanisms function callbacks for \lst{jacob} etc, along with meta-data into the global arrays (see \fig{lst:register_mech}).
+\item
+    Each thread has a list of mechanisms assigned to it, which are accessed via a linked list \lst{NrnThread::mechanisms} (see \fig{lst:NrnThreadInfo} where I have changed the name \lst{tml} to \lst{mechanisms}, to better match the pseudo code.) The linked list indexes the global arrays \lst{memb_list} and \lst{memb_func} \hilight{(why not use an array instead of a linked list?)}.
+\item
+    There are many opportunities to improve the interface between the runtime (solvers etc) and user-defined mechanisms.
+    This model is well-suited to standard object-oriented design.
+    Furthermore, much of the meta-data that is currently passed as runtime parameters could be stored as type-information that could help the compiler optimize more agressively.
+\end{itemize}
+
+\noindent
+Mechanisms and their storage:
+\begin{itemize}
+\item
+    All mechanisms are not applied to different nodes. For example, the \lst{ProbAMPANDMDA_EMS} mechanism will only be applied at a subset of the nodes in a cell.
+\item
+    Each mechanism has ``state'' that is stored for each node to which it is applied. This state is a set of double-precision values (e.g. a set of values describing the time evolution of a ordinary differential equation).
+\item
+    The number of state variables varies between mechanisms, ranging from 3 to 35 values.
+\item
+    Each entry in \lst{memb_list[]} stores 
+    \begin{itemize}
+    \item
+        \lst{int nodecount}: the number of nodes to which
+    \item
+        \lst{int nodeindices[nodecount]}: the indexes of the nodes to which the mechanism is to be applied.
+    \item
+        \lst{double data[nodecount*var_per_node]}: AoS storage for the mechanism  values.
+    \end{itemize}
+\end{itemize}
+
+
+\begin{figure}
+\begin{shaded}
+\lstinputlisting [language=C++,breaklines=true] {./code/storage.cpp}
+\end{shaded}
+\label{lst:NrnThreadInfo}
+\caption{The thread (\lst{NrnThread}), mechanism data (\lst{Memb_list}) and mechanism functionality (\lst{Memb_func}) types. I have removed and renamed much of the members to make them better match the pseudo code. Some C++ coding style has also been used.}
+\end{figure}
+
+\begin{figure}
+\begin{shaded}
+\lstinputlisting [language=C++,breaklines=true] {./code/register_mech.cpp}
+\end{shaded}
+\label{lst:register_mech}
+\caption{The routines used in registering a mechanism}
+\end{figure}
+
+\begin{figure}[htp!]
+\input{images/AoSvsSoA.tex}
+\caption{The current AoS layout of mechanism parameters for all applicable nodes.}
+\end{figure}
+
+\noindent
+Observations
+\begin{itemize}
+\item
+    Splitting the cells into seperate, thread-specific, data structures complicates the code. This feels like it was added at some point to facilicate threading.
+\item
+    Could be stripped away, to store all cells on a node/numa-region/device into a single pool.
+\item
+    The AoS storage is inefficient:
+    \begin{itemize}
+    \item
+        It doesn't vectorize (see \fig{fig:papisample}).
+    \item
+        Poor cache/bandwidth utlization for loops (such as the \lst{jacob} update) where only one or two data values in a mechanism are touched. For each 64 byte cache line loaded, only 8 bytes of 64 are used.
+    \end{itemize}
+    An SoA storage would address both issues.
+\item
+    With SoA vectorization of most loops would still not be possible, because of the gather/scatter implicit in using the node indexes to read/write to the V and RHS vectors.
+    \begin{itemize}
+    \item
+        Perform scatter before computing the current, then gather after.
+    \end{itemize}
+\end{itemize}
+

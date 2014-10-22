@@ -38,7 +38,7 @@
 \newcommand{\att}[1]{{#1}^{n}}
 \newcommand{\attplus}[1]{{#1}^{n+1}}
 \newcommand{\attplushalf}[1]{{#1}^{n+\frac{1}{2}}}
-\newcommand{\hoc}{\lst{.hoc}\xspace}
+\newcommand{\hoc}{\lst{.mod}\xspace}
 
 \lstdefinelanguage{julia}
 {
@@ -84,6 +84,7 @@
 \author{Ben Cumming\\CSCS -- Swiss National Supercomputing Center}
 \date{\today}
 \maketitle
+\tableofcontents
 
 % abstract
 \abstract{
@@ -105,7 +106,7 @@ Note that \emph{Bluron} refers to the \emph{Neuron} plus the \hoc files used to 
 \section{The Code}
 \input{overview.tex}
 
-\section{Code Walkthrough}
+\section{Walkthrough}
 \input{high_level.tex}
 
 \subsection{The Algorithm}
@@ -113,6 +114,9 @@ Note that \emph{Bluron} refers to the \emph{Neuron} plus the \hoc files used to 
 
 \subsection{Implementation of a time step}
 \input{timestep_impl.tex}
+
+\section{Data Layout}
+\input{data.tex}
 
 \section{Benchmarking}
 \input{benchmarking.tex}

@@ -2,8 +2,8 @@ Digraph G{
     // draw index down lhs
     {
         node [shape=none]
-        thread -> fadvance -> nrniv -> hoc
-        hoc [shape=box, style=bold, fontcolor=Red, color=Red] // use box for everything
+        thread -> fadvance -> nrniv -> mod
+        mod [shape=box, style=bold, fontcolor=Red, color=Red] // use box for everything
     }
 
     // describe the heavy edges
@@ -19,7 +19,7 @@ Digraph G{
     nonvint    -> state              [label="42%"]
 
     // describe the light edges
-    // of the following, all are implemented in "nrnoc" path, not in .hoc files
+    // of the following, all are implemented in "nrnoc" path, not in .mod files
     //  as such they should not be on the same level as things like jacob and state
     node [style=solid, fontcolor=Black, color=Black]
     edge [color=Black, fontcolor=Black, style=dashed]
@@ -38,5 +38,5 @@ Digraph G{
     {rank = same; thread; fixed_step};
     {rank = same; fadvance; setup_tree_matrix; update; matrix_solve; second_order_cur; nonvint; other};
     {rank = same; nrniv; rhs_update; cap_jacob; lhs_update};
-    {rank = same; hoc; current; jacob; state};
+    {rank = same; mod; current; jacob; state};
 }
