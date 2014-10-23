@@ -1,7 +1,7 @@
 # in /nrnoc/eion.c
-function second_order_cur(thread)
+function second_order_cur(cell_group)
   if secondorder == 2
-    for mechanism in thread.mechanisms
+    for mechanism in cell_group.mechanisms
       if is_ion(mechanism)
         mechanism.data.c += mechanism.data.dc .* VEC_RHS
       end
@@ -10,7 +10,7 @@ function second_order_cur(thread)
 end
 
 # in /nrnoc/fadvance.c
-function update(thread)
+function update(cell_group)
   factor = 1.0
   if secondorder==true
     factor = 2.0
@@ -18,7 +18,7 @@ function update(thread)
   # vectorizable
   VEC_V[:] += factor*VEC_RHS[:]
   # apply to only the first mechanism
-  nrn_capacity_current(thread.mechanisms[1]);
+  nrn_capacity_current(cell_group.mechanisms[1]);
 end
 
 # in /nrnoc/capac.c
@@ -31,3 +31,4 @@ function nrn_capacity_current(mechanism)
     data.i_cap[i] = cfac * data.cm[i] * VEC_RHS[ni[i]]
   end
 end
+

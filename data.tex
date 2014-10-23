@@ -1,6 +1,10 @@
-Up to this point the actual layout of data in memory has not been described in detail. Indeed, the pseudo-code examples have treated the data for each mechanism as though it was stored as \emph{structure of arrays} (SoA), when it is in fact stored as \emph{array of scructures}.
+Up to this point the actual layout of data in memory has been treated in a somewhat abstract manner, with no detail about how it is actually implemented in \neuron. Indeed, the pseudo-code examples have treated the data for each mechanism as though it was stored as \emph{structure of arrays} (SoA), when it is in fact stored as \emph{array of scructures}.
 
 Here we will describe the data layout as it is currently implemented. To design the fine-grained parallelization strategy and corresponding data structures, we must first understand the layout of data, and the data-access patterns of the different components.
+
+\begin{note}
+It is my personal opinion that a good spot to start would be a simple serialization framework for reading and writing the state of a cell group in \neuron. This would be a good exercise in getting into the nitty-gritty of the memory layout, and could be used as input data for unit tests when trying out new approaches.
+\end{note}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Parallel Data Distribution}

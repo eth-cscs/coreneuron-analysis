@@ -1,12 +1,13 @@
-# specialized on mechanism type
-function state(mechanism)
+# specialized state function for NaTaMechanism
+function state(mechanism::NaTaMechanism)
   data = mechanism.data
+  ion  = mechanism.ion
   ni   = mechanism.nodeindices
   local v
   for i in 1:mechanism.nodecount
     v = VEC_V[ni[i]]
     data.v[i] = v
-    data.ena[i] = _ion_ena # TODO pp_var
+    data.ena[i] = ion.ena[i]
     states(data)
   end
 end

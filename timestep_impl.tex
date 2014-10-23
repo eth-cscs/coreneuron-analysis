@@ -77,6 +77,12 @@ The same mechanism can be applied to more than one nodes in a cell group, e.g. t
         A method for reading/writing the state of another mechanism is required, which we have abstracted with the Ion type, which can be considered to be a reference to the state information stored in the appropriate ion mechanism.
 \end{enumerate}
 
+\begin{note}
+The description of interactions with ion mechanisms is a gross simplification of how ion interactions are handled: \emph{it's complicated, and I do not understand it yet}.
+The treatment of ionic processes varies from node to node, and depends on the combination of mechanisms on the node.
+I have a feeling that finding a generic and performant method for handling ion channel interactions will be the trickiest part of optimizing the computational engine.
+\end{note}
+
 \begin{figure}[htp!]
 \begin{shaded}
 \begin{lstlisting} [language=julia,breaklines=true]
@@ -86,12 +92,15 @@ type CaMechanism
   Array{Int} nodeindices # indices of nodes with this mechanism
 
   # data fields for every node at which mechanism is applied
-  Array{Float} gCabar
-  Array{Float} ica
-  Array{Float} gCa
-  Array{Float} m
-  Array{Float} h
-  # ...
+  type Data
+    Array{Float} gCabar
+    Array{Float} ica
+    Array{Float} gCa
+    Array{Float} m
+    Array{Float} h
+    # ...
+  end
+  Data data
 
   # storage for ion channels
   type Ion
@@ -133,6 +142,7 @@ The inner part of each time step is implemented in the function \lst{nrn_fixed_s
 A breakdown of wall time for the steps in \lst{nrn_fixed_step} is given in \fig{fig:calltree}. Some of the routines listed here have less than 1\% of wall time (including the linear system solve in \lst{nrn_solve_minimal}), however they are discussed below because their data access influence the implementation on many-core architectures (e.g. GPU and MIC).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Building matrix and RHS: \lst{setup_tree_matrix}}
+\label{sec:matrix_rhs}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 The function \lst{setup_tree_matrix} generates the diagonal, the $d_i$ values, and the RHS vector. These tasks are performed in two separate routines, \lst{nrn_lhs} and \lst{nrn_rhs}.
 \begin{shaded}
@@ -151,7 +161,7 @@ Both forms are shown below:
 It is common for multiple mechanisms to be defined on the same node (indeed, often there are many instances of the same mechanism on a single node). As such, it is not possible to replace for loop over the mechanisms that calls the \lst{current} function with a \lst{parallel_forall} loop, because there will be race conditions if different mechansims update the same \lst{VEC_RHS} values simultaneously.
 
 \begin{note}
-    The main challenge in fine-grained parallelism of the time step will always boild down to avoiding such race conditions. It may be possible to work around this issue using \emph{ghost arrays} for each mechanism, into which \lst{VEC_*} arrays are gatherd, or from which they are scattered, before or after looping over a mechanism operation.
+A big challenge in fine-grained parallelism of the time step will always boild down to avoiding such race conditions. It may be possible to work around this issue using \emph{ghost arrays} for each mechanism, into which \lst{VEC_*} arrays are gatherd, or from which they are scattered, before or after looping over a mechanism operation.
 \end{note}
 
 The \lst{current} functions for the mechanisms contribute 45\% of time to solution for the TEST2 benchmark. An  example of a \lst{current} implementation is given below (specifically, it is the mechanism defined in \file{/mech/cfiles/NaTa_t.c}). Note that it uses references to .
@@ -162,7 +172,7 @@ The \lst{current} functions for the mechanisms contribute 45\% of time to soluti
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Solving the linear system: \lst{nrn_solve_minimal}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The solution of the linear system using Hines algorithm is straight forward, and is implemented in \file{/nrnoc/solve_core.c}. As described in \sect{sec:hines}, the upper triangle is elimnated first with a backward sweep, followed by a forward sweep, which differs from the usual presentation of Gaussian elimination as a forward substitution followed by backwards substitution.
+The solution of the linear system using Hines algorithm is straight forward, and is implemented in \file{/nrnoc/solve_core.c}. As described in \sect{sec:hines}, the upper triangle is eliminated first with a backward sweep, followed by a forward sweep, which differs from the usual presentation of Gaussian elimination as a forward substitution followed by backwards substitution.
 
 \begin{note}
 The solution is applied to all of the cells in a \lst{CellGroup} in one sweep.
@@ -180,12 +190,14 @@ Instead of being applied to just \lst{VEC_RHS[1]}, it is applied to \lst{VECH_RH
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Advancing the solution: \lst{update}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+These routines have almost no computational overhead, but they are included here to record their data access patterns.
+The solution to the linear system, stored in \lst{VEC_RHS} is actually the delta in solution, that is $\at{\text{RHS}} = \at{V}^{n+1} - \at{V}^{n}$.
+The \lst{update} function updates the solution in \lst{VEC_V} by adding the contribution in \lst{VEC_RHS}.
+The \lst{update} function is the only part of the \neuron code that successfully vectorizes, because of the stride-one data access pattern in the update.
 
-These routines have almost no computational overhead, and are included here for completeness.
+The \lst{second_order_cur} routine is used to ensure that current is up to date for ion channels before the solution update is applied, in case they are required for reporting, i.e. the results are not used in the solution.
 
-The solution to the linear system, stored in \lst{VEC_RHS} is actually the delta in solution, that is $\at{\text{RHS}} = \at{V}^{n+1} - \at{V}^{n}$. The \lst{update} function updates the solution in \lst{VEC_V} by adding the contribution in \lst{VEC_RHS}. The \lst{update} function is the only part of the \neuron code that successfully vectorizes, because of the stride-one data access pattern in the update.
-
-\hilight{I don't know the purpose of the \lst{second_order_cur} and \lst{nrn_capacity_current} routines.}
+The \lst{nrn_capacity_current} calculates the current for the capacitance mechanism (which is always the first mechanism). This needs to be updated here, as opposed to when the currents are updated for all the other mechanisms in \lst{nrn_rhs} in \sect{sec:matrix_rhs}.
 
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/update.jl}
@@ -199,8 +211,12 @@ The \lst{nonvint} function is a simple lookup of the \lst{state} function define
 \lstinputlisting [language=julia,breaklines=true] {./code/nonvint.jl}
 \end{shaded}
 
-The \lst{state} function implementations are derived from the \hoc implementation. These have obvious potential for vectorization, because they do not appear to have the ``parent update'' pattern in other loops. However this would require using structore of array (SoA) storage (see the next section). Below is an example of one state update -- note the many exponentials (some of which are redundant, i.e. )
+The \lst{state} function implementations are derived from the \hoc implementation, and are specialized for each mechanism type. These have obvious potential for vectorization, because they are often compuationally intensive with expensive operations like \lst{exp} and \lst{pow}. Below is an example of one state update, note the many exponentials (some of which are redundant, i.e. no attempt is made to take advantage of identities like $\text{e}^{-x}=1/\text{e}^{x}$)
 
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/state.jl}
 \end{shaded}
+
+\begin{note}
+    The \lst{state}, \lst{current} and \lst{jacob} functions are defined uniquely for each mechanism type. Not all mechansims have require all of these functions, in which case calling one of these functions on that mechanism type does nothing. In practice \neuron implements this by checking the value of a function pointer, and only calls it if the pointer is not \lst{NULL}.
+\end{note}
