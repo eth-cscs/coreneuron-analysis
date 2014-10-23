@@ -92,6 +92,7 @@ type CaMechanism
   Array{Int} nodeindices # indices of nodes with this mechanism
 
   # data fields for every node at which mechanism is applied
+  # implemented as a private data type
   type Data
     Array{Float} gCabar
     Array{Float} ica
