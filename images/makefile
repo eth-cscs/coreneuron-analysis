@@ -1,4 +1,5 @@
-all: calltree.pdf bbs_netpar_solve.pdf tree.pdf discrete.pdf discrete_a.pdf discrete_b.pdf  discrete_c.pdf discrete_d.pdf
+PDFS=calltree.pdf bbs_netpar_solve.pdf tree.pdf discrete.pdf discrete_a.pdf discrete_b.pdf  discrete_c.pdf discrete_d.pdf timestep_flow.pdf
+all: ${PDFS}
 
 calltree.pdf: calltree.dot
 	dot -Tpdf -o calltree.pdf calltree.dot
@@ -24,5 +25,11 @@ discrete_c.pdf: discrete_c.dot
 discrete_d.pdf: discrete_d.dot
 	dot -Tpdf -o discrete_d.pdf discrete_d.dot
 
+timestep_flow.pdf: timestep_flow.tex
+	pdflatex timestep_flow.tex
+
 clean:
-	rm -f *.pdf
+	rm -f ${PDFS}
+	rm -f *.dvi
+	rm -f *.aux
+	rm -f *.log

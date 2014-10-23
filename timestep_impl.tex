@@ -1,4 +1,7 @@
-In this section the implementation of the code that forms and solves the matrix, which accounts for 99\% of the time to solution will be described. The algorithm themselves are quite simple, however their implementation is very difficult to understand. To make it easier to understand to understand implementation, the core routines have been rewritten in a high-level pseudo code similar to Julia.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Pseudo-Code}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The algorithm in the time stepping are quite simple, however their implementation can be very difficult to understand and reason about. To make it easier to understand to understand implementation, the core routines are presented here in a high-level pseudo code similar to Julia. Many variables, type names, and functions have been renamed to make their meaning clearer. For example \lst{_nt} has been renamed \lst{cell_group}, to clearly identify it's meaning.
 
 An example of the pseudo code represents the following C code
 \begin{shaded}
@@ -13,7 +16,7 @@ for (tml = _nt->tml; tml; tml = tml->next)
 \noindent as
 \begin{shaded}
 \begin{lstlisting} [language=julia,breaklines=true]
-for mechanism in thread.mechanisms
+for mechanism in cell_group.mechanisms
   current(mechanism)
 end
 \end{lstlisting}
@@ -21,89 +24,182 @@ end
 \noindent Note that the same level of clarity is possible with C+11:
 \begin{shaded}
 \begin{lstlisting} [language=julia,breaklines=true]
-for( auto &mechanism : thread.mechanisms() ) {
-  mechanism.current(thread);
+for( auto &mechanism : cell_group.mechanisms() ) {
+  mechanism.current();
 }
 \end{lstlisting}
 \end{shaded}
 
-The inner part of each time step is implemented in the function \lst{nrn_fixed_step_thread()}, in \file{nrnoc/fadvance_core.c}. The routine takes as its argument a pointer to a struct of type \lst{NrnThread}, see \fig{lst:NrnThread}, which holds state relating to a set of cells to be integrated in time.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Data}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The data layout in the \neuron code is described in more detail in \sect{sec:data}. For this part of the report, we use a representation of the storage for a group of cells that is easier to understand.
+
+\neuron stores \emph{cell groups}, which are a set of cells, in a \lst{NrnThread} data structure. The ``thread'' in the type name is misleading, so it is renamed as a \lst{CellGroup} in the definition in \fig{fig:CellGroup}.
+
+\begin{figure}[htp!]
+\begin{shaded}
+\begin{lstlisting} [language=julia,breaklines=true]
+# storage for a group of cells packed into flat arrays
+type CellGroup
+  Int ncells    # number of cells in group
+  Int nnodes    # total number of nodes in all cells
+
+  Array{Int} parent_indices
+
+  # list of all the mechanisms for this cell group
+  Array{Any} mechanisms
+
+  # storage for the linear system
+  Array{Float} VEC_A
+  Array{Float} VEC_B
+  Array{Float} VEC_D
+  Array{Float} VEC_V
+  Array{Float} VEC_RHS
+end
+\end{lstlisting}
+\end{shaded}
+\caption{Data structure for storing the state of a group of cells. Mechanism-specific data is stored in an array of mechanisms, and the matrix state is stored in the vectors \lst{VEC_*}.}
+\label{fig:CellGroup}
+\end{figure}
+
+The other important abstraction is a \emph{mechanism}. In the definition of \lst{CellGroup}, there is an array called \lst{mechanisms}. Loosley defined, mechanisms are processes that occur at nodes \footnote{This is generally true. There are some exceptions, but we ignore those for now.}, for example a mechanism might define the state of a synapse at a node.
+
+The same mechanism can be applied to more than one nodes in a cell group, e.g. the same synapse type might be present at many different nodes. Pseudo code for a type that stores the information required to define a mechanism for a cell group is in \fig{fig:CaMechanism}.  There are three important sets of information for the mechanism type:
+\begin{enumerate}
+    \item
+        Information about which nodes the mechanism is to be applied at, i.e. \lst{nodecount} and \lst{nodeindices}.
+    \item
+        State information for the mechanism at every node at which it is applied. For example, synapses are modelled with an ordinary differential equation for current, which has multiple fields and parameters. The value of each field and parameter has to be stored at each node. In the example used here this is stored as a structure of array (SoA) format, with one vector of length \lst{nodecount} for each state parameter/variable.
+    \item
+        External Ion information.
+        Some mechanisms read/write to the state of ion chanels, which are implemented as separate mechanisms.
+        A method for reading/writing the state of another mechanism is required, which we have abstracted with the Ion type, which can be considered to be a reference to the state information stored in the appropriate ion mechanism.
+\end{enumerate}
+
+\begin{figure}[htp!]
+\begin{shaded}
+\begin{lstlisting} [language=julia,breaklines=true]
+# mechanism for calcium
+type CaMechanism
+  Int        nodecount   # number of nodes with this mechanism
+  Array{Int} nodeindices # indices of nodes with this mechanism
+
+  # data fields for every node at which mechanism is applied
+  Array{Float} gCabar
+  Array{Float} ica
+  Array{Float} gCa
+  Array{Float} m
+  Array{Float} h
+  # ...
+
+  # storage for ion channels
+  type Ion
+    Array{Float} ica
+    Array{Float} eca
+    Array{Float} icadv
+  end
+  Ion ion
+end
+
+# specialize functions for calcium mechanism
+function current(mechanism::CaMechanism)
+    # implementation goes here
+end
+function jacob(mechanism::CaMechanism)
+    # implementation goes here
+end
+function state(mechanism::CaMechanism)
+    # implementation goes here
+end
+\end{lstlisting}
+\end{shaded}
+\caption{Definition of the Calcium (Ca) mechanism data type in pseudo code.}
+\label{fig:CaMechanism}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\clearpage
+\subsection{One Time Step}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The inner part of each time step is implemented in the function \lst{nrn_fixed_step_thread}, in \file{nrnoc/fadvance_core.c}. The routine takes as its argument a pointer to a struct of type \lst{NrnThread}. Here we implement it with a \lst{CellGroup} argument, as defined in \fig{fig:CellGroup}.
+
+\todo{Add Francesco's diagram of the time step.}
+
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/fixed_step_thread.jl}
 \end{shaded}
 
-A breakdown of wall time for the steps in \lst{nrn_fixed_step()} is given in \fig{fig:calltree}. Some of the routines listed here have less than 1\% of wall time (including the linear system solve in \lst{nrn_solve_minimal()}), however they are discussed below because they access they have implementation details that will influence the implementation on many-core architectures (e.g. GPU and MIC).
-
+A breakdown of wall time for the steps in \lst{nrn_fixed_step} is given in \fig{fig:calltree}. Some of the routines listed here have less than 1\% of wall time (including the linear system solve in \lst{nrn_solve_minimal}), however they are discussed below because their data access influence the implementation on many-core architectures (e.g. GPU and MIC).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Building matrix and RHS: \lst{setup_tree_matrix()}}
+\subsubsection{Building matrix and RHS: \lst{setup_tree_matrix}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The function \lst{setup_tree_matrix()} generates the diagonal, the $d_i$ values, and the RHS vector. These tasks are performed in two separate routines, \lst{nrn_lhs()} and \lst{nrn_rhs()}.
+The function \lst{setup_tree_matrix} generates the diagonal, the $d_i$ values, and the RHS vector. These tasks are performed in two separate routines, \lst{nrn_lhs} and \lst{nrn_rhs}.
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/setup_tree_matrix.jl}
 \end{shaded}
 
-Points
-\begin{itemize}
-\item
-    The array \lst{p} is an index array containing the parent node indexes.
-\item
-    The arrays \lst{VEC_*} correspond to the vectors $\vv{a}, \vv{b}, \vv{d}, \vv{v}, \vv{r}$ that define the linear system.
-\item
-    Each thread has multiple cells, each with their own tree representation. The cells are packed together, with the root node of each cell placed first in the list of all nodes, hence the definition of \lst{child_nodes} excluding indexes $1:ncells$.
-\item
-    Nearly all (i.e. 99\%) of the time in these two routines is spent in the calls to the \lst{mechanism.current()} and \lst{mechanism.jacob()} routines.
-\item
-    The matrix updates still must be considered, because there are potential race conditions in a multi-threaded/GPU implementation. For example the statement \\ \lst{VEC_RHS[p[i]] += dv * VEC_A[i]} \\ will lead to a race condition if two threads with the same parent node try to update the RHS vector at the same time.
-\end{itemize}
+The \lst{nrn_lhs} function sets the values on the diagonal of the matrix, stored in \lst{VEC_D}. It starts by initializing the \lst{VEC_D} to zero, the calls the \lst{jacob} function for each mechanism. The \lst{jacob} function adds the conrtibution from each mechanism at each node to the relevant entry in \lst{VEC_D}.
+The \lst{jacob} funtion is defined for each mechanism that contributes to the diagonal.
+The \lst{jacob} functions are identical for all such mechanisms, except for the capacitance mechanism, which is always the first mechanism \lst{thread.mechanisms[1]}.
+Both forms are shown below:
 
-The \lst{mechanism.current()} and \lst{mechanism.jacob()} routines are defined in the \file{/mech/cfiles} path, and are automatically generated from Neuron \hoc DSL. \fig{fig:calltree} shows that all of the computational work in the \neuron benchmark used in this report is performed by functions from the \hoc layer. The \lst{jacob} functions are also very simple, and all have the same form \hilight{(I think, there may be some exceptions)}
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/jacob.jl}
 \end{shaded}
 
-The \lst{mechanism.current} calls contribute 45\% of time to solution for the TEST2 benchmark. They are uniquely defined for each mechanism. \hilight{Is it possible to present a few different examples that have all the expected \emph{patterns} in a current implementation?}. A ``representative'' example of a \lst{current} implementation is:
+It is common for multiple mechanisms to be defined on the same node (indeed, often there are many instances of the same mechanism on a single node). As such, it is not possible to replace for loop over the mechanisms that calls the \lst{current} function with a \lst{parallel_forall} loop, because there will be race conditions if different mechansims update the same \lst{VEC_RHS} values simultaneously.
+
+\begin{note}
+    The main challenge in fine-grained parallelism of the time step will always boild down to avoiding such race conditions. It may be possible to work around this issue using \emph{ghost arrays} for each mechanism, into which \lst{VEC_*} arrays are gatherd, or from which they are scattered, before or after looping over a mechanism operation.
+\end{note}
+
+The \lst{current} functions for the mechanisms contribute 45\% of time to solution for the TEST2 benchmark. An  example of a \lst{current} implementation is given below (specifically, it is the mechanism defined in \file{/mech/cfiles/NaTa_t.c}). Note that it uses references to .
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/current.jl}
 \end{shaded}
-\hilight{I don't understand the \lst{ppvar} variable, and how it is used to implement lookups like \lst{_ion_dinadv}. Any insight here would be appreciated.}
-
-The \lst{nrn_cap_jacob()} function is a very simple, illustrating a common data access pattern whereby a vector (int this case \lst{VEC_D}) is updated according to the parent node if the loop index:
-\begin{shaded}
-\lstinputlisting [language=julia,breaklines=true] {./code/nrn_cap_jacob.jl}
-\end{shaded}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Solving the linear system: \lst{nrn_solve_minimal()}}
+\subsubsection{Solving the linear system: \lst{nrn_solve_minimal}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The solution of the linear system using Hines algorithm is straightforward, and is implemented in \file{/nrnoc/solve_core.c}.
+The solution of the linear system using Hines algorithm is straight forward, and is implemented in \file{/nrnoc/solve_core.c}. As described in \sect{sec:hines}, the upper triangle is elimnated first with a backward sweep, followed by a forward sweep, which differs from the usual presentation of Gaussian elimination as a forward substitution followed by backwards substitution.
+
+\begin{note}
+The solution is applied to all of the cells in a \lst{CellGroup} in one sweep.
+However, the linear systems for the cells are independent, so this can be parallelized by solving for all trees simultaneously, though it would require additional metadata not present in the current \lst{CellGroup} representation.
+
+All of the nodes in the cell group are numbered such that the root node for all of the trees are numbered \lst{1:ncells}, so that for example the values in \lst{VEC_D[1:ncells]} correspond to the diagonal values on the first row of the matrix of cells \lst{1:ncells}.
+This is evident when we look at the last step in the backward substituion, where only the value in row 1 of the RHS vector is scaled by the diagonal.
+Instead of being applied to just \lst{VEC_RHS[1]}, it is applied to \lst{VECH_RHS[1:ncells]}.
+\end{note}
 
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/nrn_solve_minimal.jl}
 \end{shaded}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Advancing the solution: \lst{update()}}
+\subsubsection{Advancing the solution: \lst{update}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 These routines have almost no computational overhead, and are included here for completeness.
 
-The solution to the linear system, stored in \lst{VEC_RHS} is actually the delta in solution, that is $\at{\text{RHS}} = \at{V}^{n+1} - \at{V}^{n}$. The \lst{update()} function updates the solution in \lst{VEC_V} by adding the contribution in \lst{VEC_RHS}. The \lst{update()} function is the only part of the \neuron code that successfully vectorizes, because of the stride-one data access pattern in the update.
+The solution to the linear system, stored in \lst{VEC_RHS} is actually the delta in solution, that is $\at{\text{RHS}} = \at{V}^{n+1} - \at{V}^{n}$. The \lst{update} function updates the solution in \lst{VEC_V} by adding the contribution in \lst{VEC_RHS}. The \lst{update} function is the only part of the \neuron code that successfully vectorizes, because of the stride-one data access pattern in the update.
 
-\hilight{I don't know the purpose of the \lst{second_order_cur()} and \lst{nrn_capacity_current()} routines.}
+\hilight{I don't know the purpose of the \lst{second_order_cur} and \lst{nrn_capacity_current} routines.}
 
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/update.jl}
 \end{shaded}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Updating \emph{state}: \lst{nonvint()}}
+\subsubsection{Updating \emph{state}: \lst{nonvint}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The \lst{nonvint()} function is a simple lookup of the \lst{state()} function defined for each mechanism. These calls are a significant contribution to computational overheads -- greater than 40\% for the TEST2 benchmark.
+The \lst{nonvint} function is a simple lookup of the \lst{state} function defined for each mechanism. These calls are a significant contribution to computational overheads -- greater than 40\% for the TEST2 benchmark.
 
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/nonvint.jl}
 \end{shaded}
 
-The \lst{state()} function implementations are derived from the \hoc implementation. These have obvious potential for vectorization, because they do not appear to have the ``parent update'' pattern in other loops. However this would require using structore of array (SoA) storage (see the next section). Below is an example of one state update -- note the many exponentials (some of which are redundant, i.e. )
+The \lst{state} function implementations are derived from the \hoc implementation. These have obvious potential for vectorization, because they do not appear to have the ``parent update'' pattern in other loops. However this would require using structore of array (SoA) storage (see the next section). Below is an example of one state update -- note the many exponentials (some of which are redundant, i.e. )
 
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/state.jl}

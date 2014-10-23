@@ -1,16 +1,16 @@
-function nrn_fixed_step(thread::NrnThread)
+function nrn_fixed_step(cell_data::CellData)
   ### other ###
-  # form the matrix (d vector and RHS)
-  setup_tree_matrix_minimal(thread)
+  # form the matrix (D vector and RHS)
+  setup_tree_matrix_minimal(cell_data)
   # solve the linear system
-  nrn_solve_minimal(thread)
-  # ??
-  second_order_cur(thread)
-  # advance the solution 
-  update(thread)
+  nrn_solve_minimal(cell_data)
+  # update current values for I/O (not used in calculations)
+  second_order_cur(cell_data)
+  # advance the solution
+  update(cell_data)
   ### other ###
   # update states
-  nonvint(thread)
+  nonvint(cell_data)
   ### other ###
   return None
 end

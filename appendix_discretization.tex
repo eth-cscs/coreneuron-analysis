@@ -1,0 +1,73 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{One Dimensional Discretization}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\hilight{Francesco, this would be a good spot to put any extra details.}
+
+The spatial and temporal discretization used in Neuron is finite difference with a Crank Nicholson time stepping scheme. The time stepping scheme has an odd form, that differs slightly from the scheme presented here. However, the exposition here adequately characterizes the code.
+
+\emph{Finite Difference Methods in Heat Transfer, Second Edition} By Necati Ozisik (1994) gives the following finite difference discretization
+\begin{align}
+    \dx \left(\at{C} \frac{\attplus{\at{V}} - \att{\at{V}}}{\dt} + \attplushalf{\at{I}} \right)
+    &=\nonumber \\
+    & \at{f} \theta
+            \left[
+                \atminushalf{g} \frac{\atminus{V}^{n+1}-\at{V}^{n+1}}{\dx}
+              + \atplushalf{g}  \frac{\atplus{V}^{n+1}-\at{V}^{n+1}}{\dx}
+            \right] \nonumber \\
+            + & \at{f} (1-\theta)
+            \left[
+                \atminushalf{g} \frac{\atminus{V}^{n}-\at{V}^{n}}{\dx}
+              + \atplushalf{g}  \frac{\atplus{V}^{n}-\at{V}^{n}}{\dx}
+            \right]
+        \label{eq:cableDiscretization}
+\end{align}
+
+where the parameter $\theta$ can be used to determine the time stepping scheme ($\theta=0$ explicit, $\theta=1$ implicit, $\theta=1/2$ Crank-Nicholson).
+
+Note that the quantity $I$ depends on the value of $V$. These values have to be evaluated to form coefficients in the linear system that is to solved at each time step. The approach taken by Neuron is the evaluate them at a half time step value at $t+\dt/2$, denoted $\attplushalf{\at{I}}$, by implicitly solving for a half step, then performing an explicit half step.
+
+With a Crank Nicholson time stepping scheme, i.e. $\theta=1/2$, the terms on the right hand side of \eq{eq:cableDiscretization} simplify to
+\begin{align}
+        \frac{\at{f}}{2}
+        &\left\{
+            \left[
+                \atminushalf{g} \frac{\atminus{V}^{n+1}-\at{V}^{n+1}}{\dx}
+              + \atplushalf{g}  \frac{\atplus{V}^{n+1}-\at{V}^{n+1}}{\dx}
+            \right]
+        \right. \nonumber \\
+        +
+        &\left.
+            \left[
+                \atminushalf{g} \frac{\atminus{V}^{n}-\at{V}^{n}}{\dx}
+              + \atplushalf{g}  \frac{\atplus{V}^{n}-\at{V}^{n}}{\dx}
+            \right]
+        \right\} \label{eq:crankNichRHS}
+\end{align}
+
+Substituting the spatial discretization in~\eq{eq:crankNichRHS} into~\eq{eq:cableDiscretization} and rearranging gives a tri-diagonal linear system with the form
+\begin{equation}
+    \at{a} \atplus{V}^{n+1} + \at{d} \at{V}^{n+1} + \at{b} \atminus{V}^{n+1} = \at{r}
+\end{equation}
+where the diagonals in the matrix are defined
+\begin{align}
+    \at{a}  &=  -\frac{\at{f}\atplushalf{g}}{2\dx^2} \\
+    \at{b}  &=  -\frac{\at{f}\atminushalf{g}}{2\dx^2} \\
+    \at{d}  &=  \frac{\at{C}}{\dt} + \frac{f}{2\dx^2}\left[\atminushalf{g}+\atplushalf{g}\right] \nonumber\\
+            &=  \frac{\at{C}}{\dt} - ( \at{a} + \at{b} ) \\
+\intertext{and}
+    \at{r}  &=  \frac{\at{C}}{\dt} \at{V}^n - \at{I} + \frac{\at{f}}{2\dx^2}
+                    \left[
+                        \atminushalf{g} \left( \atminus{V}^{n} - \at{V}^{n} \right)
+                        +
+                        \atplushalf{g}  \left( \atplus{V}^{n}  - \at{V}^{n} \right)
+                    \right] \nonumber\\
+            &=  \frac{\at{C}}{\dt} \at{V}^n
+                - \at{I}
+                - \at{a} \left( \atminus{V}^{n} - \at{V}^{n} \right)
+                - \at{b} \left( \atplus{V}^{n}  - \at{V}^{n} \right)
+\end{align}
+
+The off-diagnoal coefficients in the linear system, i.e. $\vv{a}$ and $\vv{b}$, are constant in time, and can be computed once at start up. The values on the diagonal and right hand side vector, i.e. $\vv{d}$ and $\vv{r}$, are computed every time step, and overwritten when solving the linear system using Thomas' algorithm. The values stored in $\vv{a}$ and $\vv{b}$ are used when recomputing them.
+
+\hilight{The current, $I$, also makes a contribution to the diagonal due to it's dependence on $V$, which I have not included here.}
+

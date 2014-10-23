@@ -1,85 +1,36 @@
-The call to \lst{nrn_fixed_step_thread()} implements a single time step for the set of cells on a thread, and accounts for over 99\% of all wall time. When discussing \emph{the algorithm} here, the focus is on the algorithm as implemented: with a higher level mathematical description of the algorithm proper where required to help understanding.
+It will be shown later that the implementation of the spatial and temporal integration of the \emph{cable equation} that describes the time evolution of voltage in a cell accounts for over 99\% of all wall time. The discussion of \emph{the algorithm} here offers a basic mathematical description of the algorithm with many details that do not affect the implementation ommitted.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Spatial Discretization and Cable Equation}
+\subsection{Discretization of The 1D Cable Equation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-We first look at the spatial discretization of the partial differential equation (PDE) in \neuron. We consider a partial differential equation in one dimension with the general form
+The partial differential equation (PDE) that describes the time evolution of the voltage at each node a discretized cell has the following general form:
 \begin{equation}
      C\pder{V}{t} + I = f \pder{}{x} \left( g\pder{V}{x} \right)
 \end{equation}
-where $f$ and $g$ are functions of the spatial dimension $x$ (they are functions of \emph{cable radius} in this model). The value of $I$ is dependent on the voltage $V$.
+where $f$ and $g$ are functions of the spatial dimension $x$ (they are functions of \emph{cable radius} in this model). The value of current $I$ and capacitance $C$ are both dependent on the voltage $V$.
 
-The spatial and temporal discretization used in Neuron is finite difference with a Crank Nicholson time stepping scheme. The time stepping scheme has an odd form, that differs slightly from the scheme presented here. However, the exposition here adequately characterizes the code.
-
-\emph{Finite Difference Methods in Heat Transfer, Second Edition} By Necati Ozisik (1994) gives the following finite difference discretization
-\begin{align}
-    \dx \left(\at{C} \frac{\attplus{\at{V}} - \att{\at{V}}}{\dt} + \attplushalf{\at{I}} \right)
-    &=\nonumber \\
-    & \at{f} \theta
-            \left[
-                \atminushalf{g} \frac{\atminus{V}^{n+1}-\at{V}^{n+1}}{\dx}
-              + \atplushalf{g}  \frac{\atplus{V}^{n+1}-\at{V}^{n+1}}{\dx}
-            \right] \nonumber \\
-            + & \at{f} (1-\theta)
-            \left[
-                \atminushalf{g} \frac{\atminus{V}^{n}-\at{V}^{n}}{\dx}
-              + \atplushalf{g}  \frac{\atplus{V}^{n}-\at{V}^{n}}{\dx}
-            \right]
-        \label{eq:cableDiscretization}
-\end{align}
-
-where the parameter $\theta$ can be used to determine the time stepping scheme ($\theta=0$ explicit, $\theta=1$ implicit, $\theta=1/2$ Crank-Nicholson).
-
-Note that the quantity $I$ depends on the value of $V$. These values have to be evaluated to form coefficients in the linear system that is to solved at each time step. The approach taken by Neuron is the evaluate them at a half time step value at $t+\dt/2$, denoted $\attplushalf{\at{I}}$, by implicitly solving for a half step, then performing an explicit half step.
-
-With a Crank Nicholson time stepping scheme, i.e. $\theta=1/2$, the terms on the right hand side of \eq{eq:cableDiscretization} simplify to
-\begin{align}
-        \frac{\at{f}}{2}
-        &\left\{
-            \left[
-                \atminushalf{g} \frac{\atminus{V}^{n+1}-\at{V}^{n+1}}{\dx}
-              + \atplushalf{g}  \frac{\atplus{V}^{n+1}-\at{V}^{n+1}}{\dx}
-            \right]
-        \right. \nonumber \\
-        +
-        &\left.
-            \left[
-                \atminushalf{g} \frac{\atminus{V}^{n}-\at{V}^{n}}{\dx}
-              + \atplushalf{g}  \frac{\atplus{V}^{n}-\at{V}^{n}}{\dx}
-            \right]
-        \right\} \label{eq:crankNichRHS}
-\end{align}
-
-Substituting the spatial discretization in~\eq{eq:crankNichRHS} into~\eq{eq:cableDiscretization} and rearranging gives a tri-diagonal linear system with the form
+See \ap{appendix:discretization} for a detailed derivation of the spatial and temporal discretization. The discretization gives rise to a tridiagonal system of linear equations that is solved at every time step. The equation at each point has the following form,
 \begin{equation}
     \at{a} \atplus{V}^{n+1} + \at{d} \at{V}^{n+1} + \at{b} \atminus{V}^{n+1} = \at{r}
 \end{equation}
 where the diagonals in the matrix are defined
 \begin{align}
-    \at{a}  &=  -\frac{\at{f}\atplushalf{g}}{2\dx^2} \\
-    \at{b}  &=  -\frac{\at{f}\atminushalf{g}}{2\dx^2} \\
-    \at{d}  &=  \frac{\at{C}}{\dt} + \frac{f}{2\dx^2}\left[\atminushalf{g}+\atplushalf{g}\right] \nonumber\\
-            &=  \frac{\at{C}}{\dt} - ( \at{a} + \at{b} ) \\
-\intertext{and}
-    \at{r}  &=  \frac{\at{C}}{\dt} \at{V}^n - \at{I} + \frac{\at{f}}{2\dx^2}
-                    \left[
-                        \atminushalf{g} \left( \atminus{V}^{n} - \at{V}^{n} \right)
-                        +
-                        \atplushalf{g}  \left( \atplus{V}^{n}  - \at{V}^{n} \right)
-                    \right] \nonumber\\
-            &=  \frac{\at{C}}{\dt} \at{V}^n
+    \text{ upper diagonal : }  \at{a}  &=  -\frac{\at{f}\atplushalf{g}}{2\dx^2}, \nonumber \\
+    \text{ lower diagonal : }  \at{b}  &=  -\frac{\at{f}\atminushalf{g}}{2\dx^2}, \nonumber \\
+    \text{       diagonal : }  \at{d}  &=  \frac{\at{C}}{\dt} - ( \at{a} + \at{b} ), \nonumber \\
+    \text{right hand side : }  \at{r}  &=  \frac{\at{C}}{\dt} \at{V}^n
                 - \at{I}
                 - \at{a} \left( \atminus{V}^{n} - \at{V}^{n} \right)
-                - \at{b} \left( \atplus{V}^{n}  - \at{V}^{n} \right)
+                - \at{b} \left( \atplus{V}^{n}  - \at{V}^{n} \right). \nonumber
 \end{align}
 
-It is important to note that the coefficients in the linear system are constant in time. In practice the off-diagonal entries in $\vv{a}$ and $\vv{b}$ are computed once at start up. The values on the diagonal, i.e. those in $\vv{d}$ are overwritten when solving the linear system using Thomas' algorithm. They are reconstructed using the values stored in $\vv{a}$ and $\vv{b}$
+The off-diagonal coefficients in the linear system, i.e. $\at{a}$ and $\at{b}$,  are constant in time because they depend only on the radius of the cable. In practice the off-diagonal entries in $\vv{a}$ and $\vv{b}$ are computed once at start up. The values on the diagonal and right hand side vector, i.e. those in $\vv{d}$ and $\vv{r}$ are updated at each time step, then modified when solving the linear system using Thomas' algorithm. The values on the diagonal and right hand side vector are calculated using the precomputed values for $\at{a}$ and $\at{b}$.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{Not quite one-dimensional: trees \& branching}
+\subsection{Trees and Branching}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-In the previous subsection a one-dimensional model and it's discretization were described. We will now extend this description to handle branching, whereby the domain is composed of a series of one-dimensional \emph{sections}, that are joined at branch points to form a tree. \hilight{Note: I don't discuss how the equations are modified to handle the nodes at branches, because that doesn't impact the discussion on the implementation.}
+Here the one-dimensional discretization in the previous section will be extend to include branching, whereby the spatial domain is composed of a series of one-dimensional \emph{sections}, that are joined at branch points to form a tree.
 
-A small tree structure is illustrated in \fig{fig:tree}(a). It is important to note that the graph formed by the branching sections is a true tree, i.e. it has no circuits (once a section has branched, the branches can not ``rejoin'').
+A small tree structure that will be used throughout this section is illustrated in \fig{fig:tree}(a). It is important to note that the graph formed by the branching sections is a true tree, i.e. it has no circuits (once a section has branched, the branches can not ``rejoin'').
 
 \begin{figure}[htp!]
 \centering
@@ -95,59 +46,28 @@ A small tree structure is illustrated in \fig{fig:tree}(a). It is important to n
 \label{fig:tree}
 \end{figure}
 
-Some terms used in discussing the tree structure in \fig{fig:tree} are:
+Some terms used in discussing the tree structure in \fig{fig:tree}(a)\&(b) are:
 \begin{itemize}
-        \item \textbf{section} a branch in the tree structure, which corresponds to the one-dimensional line segmant between branch points. These are numbered $s*$ in \fig{fig:tree}(a).
+        \item \textbf{section} a branch in the tree structure, which corresponds to the one-dimensional line segment between branch points. These are numbered $s*$ in \fig{fig:tree}(a).
         \item \textbf{branch} same definition as section.
         \item \textbf{node} a point in the spatial discretization. These are numbered in \fig{fig:tree}(b).
         \item \textbf{branch node} a node where two branches join. These are the blue points denoted $n*$ \fig{fig:tree}(a).
-        \item \textbf{terminal branch} a branch that is one node that has one end that is connected to no other branches.
-        \item \textbf{terminal node} a node that lies at the end of a branch that connects to no other branches. These correspond to $n1$, $n4$, $n5$ and $n6$ in \fig{fig:tree}(a).
+%        \item \textbf{terminal branch} a branch that is one node that has one end that is connected to no other branches.
+%        \item \textbf{terminal node} a node that lies at the end of a branch that connects to no other branches. These correspond to $n1$, $n4$, $n5$ and $n6$ in \fig{fig:tree}(a).
 \end{itemize}
 
-The first step of the spatial discretixation is to discretize each one-dimensional section. Then the nodes are numbered using a scheme that gives the matrix a sparsity structure that allows the linear system to be solved in linear time, equivalent to Thomas algorithm.
+The first step of the spatial discretization is to discretize each one-dimensional section. Then the nodes are numbered using a scheme that gives the matrix a sparsity structure that allows the linear system to be solved in linear time, equivalent to Thomas algorithm.
 
-The numbering scheme is as follows
+A numbering scheme for the nodes that facilitates efficient solution of the linear system is not unique. A general description of a valid numbering strategy is as follows:
 \begin{enumerate}
-\item
-    A \emph{terminal branch} of the tree is selected, and its nodes are numbered with the terminal node last.
-    The node numbered 1 is referred to as the \emph{root node} of the tree, and is shown in red in \fig{fig:tree}(b).
-\item
-    The tree is then traversed, with the nodes on each individual edge numbered such that the node index is higher for nodes further from the root. The sequence of steps illustrated in \fig{fig:tree}(b) shows the numbering applied in this manner as each branch of the tree is visited.
+    \item
+        One node is chosen as the \emph{root node} of the tree, either a terminal node or a branch node, and assigned index 1.
+    \item
+        The tree is then traversed along each branch with the root node as the starting point. The nodes are numbered sequentially in ascending order.
+    \item
+        Every node (except the root node) has one-and-only-one \emph{parent node}, which is its neighbour that is closer to the root node (and thus has a lower index).
 \end{enumerate}
-A data-structure and algorithm for building the tree in \fig{fig:tree} are shown in \ap{appendix:treesource}. The source code for this was used to generate the images in this document.
-
-The tree and it's corresponding matrix representation have the following properties:
-\begin{itemize}
-\item
-    Every node has exactly one parent, except for the root node. In all cases the index of the parent $p_i$ of node $i$ is less than the index of the node, i.e. $p_i<i,~\forall\,i\in\left\{1,2,\dots,N\right\}$, where $N$ is the total number of nodes.
-\item
-    Non-terminal nodes have at least one child, i.e. nodes that have it as a parent, with branch nodes having one child for each branch in their subtree.
-\item
-    It is only necessary to store the parent indexes, the $p_i$ values, for each node in the tree.
-\item
-    The sparsity pattern of the linear system associated with this numbering has the following properties:
-    \begin{itemize}
-    \item
-        The sparsity pattern is symmetric.
-    \item
-        the diagonal values are all nonzero.
-    \item
-        their is exactly one off diagonal value in each row of the lower triangle at $a_{ik}$, where $k=p_i$.
-    \item
-        their is exactly one off diagonal value in each column of the upper triangle at $a_{ki}$, where $k=p_i$.
-    \end{itemize}
-\item
-    The sparsity pattern for the network in \fig{fig:tree}(b) is shown in \fig{fig:sparsity}. The pattern matrix was generated from the code in \ap{appendix:treesource}.
-\item
-    A matrix with this sparsity pattern can be stored with three vectores, $\vv{a}$, $\vv{b}$ and $\vv{c}$, where:
-    \begin{align}
-        a_i &= A_{ki} \\
-        b_i &= A_{ik} \\
-        d_i &= A_{ii}
-    \end{align}
-    where $k=p_i$.
-\end{itemize}
+The key property that is maintained by the numbering scheme is that the index of a node's parent node is lower than the node's index (equivalent to \emph{minimum degree ordering}). An example of a numbering strategy being recursively applied to our example tree is shown in \fig{fig:tree}(b).
 
 \begin{figure}[htp!]
 \centering
@@ -156,9 +76,33 @@ The tree and it's corresponding matrix representation have the following propert
 \label{fig:sparsity}
 \end{figure}
 
+To describe the sparsity pattern of the matrix from this numbering only the parent indexes, $p_i\quad i\in[2:n]$, for each node need to be stored. The matrix sparsity pattern, which is illustrated for our example tree numbering in \fig{fig:sparsity}, has the following properties:
+\begin{itemize}
+    \item
+        The sparsity pattern is symmetric.
+    \item
+        The diagonal values are all nonzero.
+    \item
+        There is exactly one off diagonal value in each row of the lower triangle at $a_{ik}$ and exactly one off diagonal value in each column of the upper triangle at $a_{ki}$, where $k=p_i$.
+    \item
+        The matrix can be stored with three vectors, $\vv{a}$, $\vv{b}$ and $\vv{c}$:
+        \begin{align}
+            a_i &= A_{ki} \\
+            b_i &= A_{ik} \\
+            d_i &= A_{ii}
+        \end{align}
+        where $k=p_i$.
+\end{itemize}
 
+\begin{note}
+The choice of the root node and the traversal order when generating the numbering is important if trying to solve the linear system in parallel. It is possible to solve sub-trees that branch from a branch node independently, before combining the results to solve the value at the branch node. For sequential solution on the CPU this isn't important, however a GPU implementation might try to take advantage of this.
+\end{note}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Hines Algorithm}
+\label{sec:hines}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 These linear systems can be solved very efficiently, in linear $O(N)$ time, using an algorithm that is equivalent to the Thomas algorithm for solving tri-diagonal systems. This algorithm, called Hines algorithm, proceeds by eliminating the nonzero entries in the upper triangle of $A$. Recall the matrix property that there is only one non-zero value in each column of the upper triangle at $A_{ki}$, which is stored in $a_i$.
-\begin{equation}
+\begin{equation*}
 \left(
         \begin{array}{ccc}
             A_{kk} & \dots      & A_{ki} \\
@@ -174,15 +118,38 @@ These linear systems can be solved very efficiently, in linear $O(N)$ time, usin
             b_i & \mathbf{0} & d_i
         \end{array}
 \right)
-\end{equation}
-The value $a_i$ and can be zeroed out with a row operation
+\end{equation*}
+The nonzero value in column $i$, i.e. $a_i$, can be zeroed out with a row operation
 \begin{equation*}
     \text{row}_k \leftarrow \text{row}_k - a_i/d_i\cdot\text{row}_i.
 \end{equation*}
-In practice the value of $a_i$ is not changed, and only the diagonal entry has to be modified
+In practice the value of $a_i$ is not changed, and only the values in on the diagonal and in the RHS vector have to be modified
+\begin{align}
+d_k \leftarrow d_k - a_i/d_i\cdot b_i, \nonumber \\
+r_k \leftarrow r_k - a_i/d_i\cdot r_i, \nonumber
+\end{align}
+So that our submatrix now looks like
 \begin{equation*}
-d_k \leftarrow d_k - a_i/d_i\cdot b_i.
+\left(
+        \begin{array}{ccc}
+            d_k - a_i/d_i\cdot b_i  & \dots      & \mathbf{0} \\
+        \vdots                      & \ddots     & \mathbf{0} \\
+            b_i                     & \mathbf{0} & d_i
+        \end{array}
+\right)
+\left(
+        \begin{array}{c}
+            r_k - a_i/d_i\cdot r_i \\
+        \vdots                     \\
+            r_i
+        \end{array}
+\right)
 \end{equation*}
-The forward substitution is then used to determine the solution. The forward and backward substitution are implemented in Julia in \ap{appendix:hinessource}.
+
+
+The algorithm proceeds by eliminating the values in the upper triangle with a backward sweep over columns $n:-1:2$.
+A forward sweep is then used to eliminate the nonzeros in the lower triangle, determine the solution.
+
+In practice, this algorithm is very efficient, contributing less than 1\% to the time to solution in the benchmarks released with the PCP. 
 
 

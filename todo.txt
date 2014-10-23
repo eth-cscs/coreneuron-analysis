@@ -1,0 +1,14 @@
+Add section at introduction where I describe the plan to understand the data structure
+    - how this drives data structure and parallelization approach.
+
+Future steps section
+    - plan for how to start porting
+        - isolate computational engine with serialization of input and output
+        - take the same approach that was applied to the Dycore
+            - serialization of each step, so that it porting can go from kernel to kernel
+
+Clean up maths/algorithm section
+    + move details to appendix
+    + expand bullet points
+    + note that the numbering scheme illustrated is one possible scheme
+        + the main point is that the parent_index[i] < i

@@ -1,6 +1,11 @@
+Up to this point the actual layout of data in memory has not been described in detail. Indeed, the pseudo-code examples have treated the data for each mechanism as though it was stored as \emph{structure of arrays} (SoA), when it is in fact stored as \emph{array of scructures}.
+
+Here we will describe the data layout as it is currently implemented. To design the fine-grained parallelization strategy and corresponding data structures, we must first understand the layout of data, and the data-access patterns of the different components.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Parallel Data Distribution}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \begin{itemize}
 \item
     Each neuron cell is represented as of a tree of nodes, as illustrated in \fig{fig:tree}.

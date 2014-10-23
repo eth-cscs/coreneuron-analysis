@@ -1,5 +1,6 @@
 \documentclass[11pt,a4paper]{article}
 
+\usepackage[colorlinks=true,linkcolor=blue!30!black]{hyperref}
 \usepackage[pdftex]{graphicx}
 \usepackage[cmex10]{amsmath}
 \usepackage[usenames,dvipsnames]{color}
@@ -20,7 +21,8 @@
 \newcommand{\todo}[1]{\textbf{\textcolor{Blue}{TODO: #1}}}
 \newcommand{\hilight}[1]{\textit{\textcolor{Red}{#1}}}
 \newcommand{\lst}[1]{\lstinline!#1!}
-\newcommand{\fig}[1]{Fig.~\ref{#1}}
+\newcommand{\fig}[1]{{Fig.}~\ref{#1}}
+\newcommand{\sect}[1]{{Section}~\ref{#1}}
 \newcommand{\eq}[1]{(\ref{#1})}
 \newcommand{\ap}[1]{Appendix~\ref{#1}}
 \newcommand{\tbl}[1]{Tbl.~\ref{#1}}
@@ -40,13 +42,21 @@
 \newcommand{\attplushalf}[1]{{#1}^{n+\frac{1}{2}}}
 \newcommand{\hoc}{\lst{.mod}\xspace}
 
+% this defines a note environment by defining a new theorem environment.
+% it would be nice to look at creating a new environment type with a box
+% box, title, and colour to make notes stand out.
+\newtheorem{note}{Note}
+
+% redefine emph for more... emphasis
+\DeclareTextFontCommand{\emph}{\bfseries}
+
 \lstdefinelanguage{julia}
 {
     morekeywords = {
         if, elseif, else,
         for, while, end, in, using, local,
         type, function, return, yieldto, try, catch, error, throw, begin, quote,
-        Int, Int32, Int64, Float, Float32, Float64, Array
+        Int, Int32, Int64, Float, Float32, Float64, Array, Any
     },
     sensitive = true,
     morecomment=[l]\#,
@@ -90,7 +100,7 @@
 \abstract{
 This document presents an overview of the \neuron code that was released as part of the PCP process for the Human Brain Project in July 2014. The analysis focuses on the structure of the code that has the highest computational overheads.
 
-More detailed analysis of the algorithms themselves, and important parts of the code like spike communication, that do not contribute meaniningfully to the time to solution are not considered for analysis. For now I will focus on just the computationally intensive parts of the code.
+More detailed analysis of the algorithms themselves, and important parts of the code like spike communication, that do not contribute to the time to solution are not considered for analysis. For now I will focus on just the computationally intensive parts of the code.
 
 Note that this analysis is based on an early version of the \neuron code, and that different algorithms (e.g. modelling plasticity) may significantly increase the importance of parts of the application not yet considered here.
 }
@@ -98,24 +108,26 @@ Note that this analysis is based on an early version of the \neuron code, and th
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{What is \neuron?}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The version of \neuron that was released for the PCP is derived directly from \emph{Bluron}, a flavour of \emph{Neuron} maintained by the Blue Brain Project (BBP) group at EPFL. \neuron is derived directly in the sense that it is a subset of the features and corresponding code from \emph{Bluron}. The code has been modified as much as needed to remove it from the larger \emph{Bluron} infrastructure, and reduce the memory footprint of the code.
+The version of \neuron that was released for the PCP is derived directly from \emph{HBPNeuron}, a flavour of \emph{Neuron} maintained by the Blue Brain Project (BBP) group at EPFL. \neuron is derived directly in the sense that it is a subset of the features and corresponding code from HBPNeuron. The code has been modified as much as needed to remove it from the larger HBPNeuron infrastructure, and reduce the memory footprint of the code.
 
-Note that \emph{Bluron} refers to the \emph{Neuron} plus the \hoc files used to define the models used in the BBP group. The computational back end is identical for both \emph{Bluron} and \emph{Neuron}. \hilight{Correct me if this is wrong.}
+Note that HBPNeuron refers to the Neuron plus the \hoc files used to define the models used in the BBP group. The computational back end is identical for both HBPNeuron and Neuron\footnote{HBPNeuron has some additional I/O routines \lst{bbsave_state} and \lst{bbcore_write} that will be integrated back into Neuron at some point.}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{The Code}
 \input{overview.tex}
 
-\section{Walkthrough}
-\input{high_level.tex}
-
-\subsection{The Algorithm}
+\clearpage
+\section{The Algorithm}
 \input{maths.tex}
 
-\subsection{Implementation of a time step}
+\clearpage
+\section{The Time Step}
+\input{high_level.tex}
 \input{timestep_impl.tex}
 
+\clearpage
 \section{Data Layout}
+\label{sec:data}
 \input{data.tex}
 
 \section{Benchmarking}
@@ -123,12 +135,13 @@ Note that \emph{Bluron} refers to the \emph{Neuron} plus the \hoc files used to 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %   appendices
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%\clearpage
-%\appendix
+\clearpage
+\appendix
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %\newpage
-%\section{Source code for constructing a tree}
-%\input{appendix_tree.tex}
+\section{Discretization Details}
+\label{appendix:discretization}
+\input{appendix_discretization.tex}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %\newpage
 %\section{Source code for Hines algorithm}

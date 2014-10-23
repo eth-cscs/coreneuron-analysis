@@ -44,27 +44,27 @@ Here we present preliminary benchmarking results based on the benchmark datasets
 \multirow{8}{*}{nodes}
 &1                & 390.8 & 383.6 & 381.6 & 380.5 & 381.3\\
 &2                & 390.9 & 385.1 & 384.0 & 385.3 & 382.5\\
-&4                & 394.8 & 392.7 & 389.9 & \textcolor{blue}{194.1} & 382.6\\
+&4                & 394.8 & 392.7 & 389.9 & \textcolor{red}{194.1} & 382.6\\
 &8                & 400.4 & 392.8 & 385.9 & 382.7 & 381.0\\
 &16               & 401.9 & 394.3 & 388.6 & 384.2 & 381.8\\
 &32               & 401.7 & 393.6 & 387.0 & 383.8 & \textcolor{red}{DNF}\\
 &64               & 403.0 & 395.7 & 390.0 & 385.4 & 382.3 \\
 &128              & 411.0 & 396.1 & 390.4 & 385.5 & 378.7 \\
-&256              & 411.4 & 397.0 & 390.7 & \textcolor{blue}{195.5} & 374.9\\
+&256              & 411.4 & 397.0 & 390.7 & \textcolor{red}{195.5} & 374.9\\
 &512              & 413.5 & 396.8 & 389.2 & 377.7 & --\\
 %\hline
 \end{tabular}
 
 %*******************************************************************************
 \label{tbl:test2scaling}
-\caption{Wall time for TEST2 as both the number of nodes and cells-per-node are varied. Each test always use 8 cores/MPI ranks per-node. The times in \textcolor{blue}{blue} indicate unexplained timings, and those marked \textcolor{red}{DNF} did not finish due to memory restrictions (it is not possible to run with more than 16 cells per node due to memory restrictions.)}
+\caption{Wall time for TEST2 as both the number of nodes and cells-per-node are varied. Each test always use 8 cores/MPI ranks per-node. The times in \textcolor{red}{red} indicate unexplained timings, and those marked \textcolor{red}{DNF} did not finish due to memory restrictions (it is not possible to run with more than 16 cells per node due to memory restrictions.)}
 \end{table}
 %*******************************************************************************
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Performance Counters}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-To profile the code I tried using Scorep and the Cray perftools, with varying success. The Scorep tool was useful, however it had very high overheads. The Cray perftools caused a segmentation fault or runtime errors.
+To profile the code I tried using Scorep and the Cray perftools, with varying success. The Scorep tool was useful, however it had high sampling overheads overheads. The Cray perftools caused a segmentation faults and other runtime errors errors.
 
 To obtain reliable results without any sampling overhead, the papi-wrap\footnote{\file{github.com/bcumming/papi-wrap}} library was used. This is a simple C++ wrapper around the Papi library for hardware counters, with a simple C API for adding samplers to source code, as shown in \fig{fig:papiinline}.
 
