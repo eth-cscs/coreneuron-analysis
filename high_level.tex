@@ -11,7 +11,7 @@ The mechanisms are configured. A text file with a tuple for each mechanism (name
 \item \lst{mk_netcvode}\\
     Creates a new \lst{NetCvode} object (see \file{nrnoc/netcvod.h/cpp}). This sets up the priority queue use to send and deliver spiking events.
 \item \lst{nrn_setup}\\
-    Before calling \lst{nrn_setup}, the configuration file \file{files.dat} is read to see how many and which cells are to be loaded for simulation. The cells are assigned in a round-robin fashion between the MPI ranks. Then \lst{nrn_setup} is called with a list of cell ids, to load the cell data from disk.
+    Before calling \lst{nrn_setup}, the configuration file \file{files.dat} is read to see get the list of files that are to be loaded for simulation. Each file contains one \emph{cell group}. The files are assigned to MPI ranks in a round-robin fashion. Then \lst{nrn_setup} is called to load the cell group data from disk.
 \item \lst{BBS_netpar_mindelay} and \lst{mk_spikevec_buffer}\\
     The mindelay and spike buffer size are configured. All neuron cells can be integrated-in-time independently for the \emph{minimum network connection delay}, i.e. spikes do not have to be delivered in the interval in which they were generated. These interval boundaries are used as synchronization points.
 \item \lst{BBS_netpar_solve} \\
@@ -38,7 +38,7 @@ mindelay/spike buffer      &    0.15   &    0.0\\
 \end{tabular}
 %-------------------------------------------------------------------------------
 \label{tbl:wallmain}
-\caption{Breakdown of wall time for TEST2 data set running on one node of Piz Daint, with 1 cell per core.}
+\caption{Breakdown of wall time for TEST2 data set running on one node of Piz Daint. One node with 8 MPI ranks (1 per core). One cell group was assigned to each MPI rank (the cell groups have between 60-70 cells, each with \~450 nodes).}
 \end{table}
 %-------------------------------------------------------------------------------
 
@@ -88,12 +88,4 @@ For more information, see \sect{sec:data}.
 %\caption{The definition of the \lst{NrnThread} data type from \file{nrnoc/multicore.h}. Note that many data members have been removed, with just some fields of interest included.}
 %\end{figure}
 
-%*******************************************************************************
-\begin{figure}[htp!]
-\centering
-\includegraphics[width=\textwidth]{./images/calltree.pdf}
-\caption{Calltree and percentage of wall time contribution for the main computational algorithm. Branches marked in blue indicate a significant contribution to wall time.}
-\label{fig:calltree}
-\end{figure}
-%*******************************************************************************
 

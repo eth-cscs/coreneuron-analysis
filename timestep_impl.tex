@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Pseudo-Code}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The algorithm in the time stepping are quite simple, however their implementation can be very difficult to understand and reason about. To make it easier to understand to understand implementation, the core routines are presented here in a high-level pseudo code similar to Julia. Many variables, type names, and functions have been renamed to make their meaning clearer. For example \lst{_nt} has been renamed \lst{cell_group}, to clearly identify it's meaning.
+The algorithm in the time stepping are quite simple, however their implementation can be very difficult to understand and reason about. To make it easier to understand to understand implementation, the core routines are presented here in a high-level pseudo code similar to Julia. Many variables, type names, and functions have been renamed to make their meaning clearer. For example \lst{_nt} has been renamed \lst{cell_group}, to clearly identify its meaning.
 
 An example of the pseudo code represents the following C code
 \begin{shaded}
@@ -134,11 +134,29 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 The inner part of each time step is implemented in the function \lst{nrn_fixed_step_thread}, in \file{nrnoc/fadvance_core.c}. The routine takes as its argument a pointer to a struct of type \lst{NrnThread}. Here we implement it with a \lst{CellGroup} argument, as defined in \fig{fig:CellGroup}.
 
-\todo{Add Francesco's diagram of the time step.}
-
+%*******************************************************************************
 \begin{shaded}
 \lstinputlisting [language=julia,breaklines=true] {./code/fixed_step_thread.jl}
 \end{shaded}
+%*******************************************************************************
+
+%*******************************************************************************
+\begin{figure}[htp!]
+\centering
+\includegraphics[width=0.75\textwidth]{./images/timestep_flow.pdf}
+\caption{Description of a single time step.}
+\label{fig:timestepDiagram}
+\end{figure}
+%*******************************************************************************
+
+%*******************************************************************************
+\begin{figure}[htp!]
+\centering
+\includegraphics[width=\textwidth]{./images/calltree.pdf}
+\caption{Calltree and percentage of wall time contribution for the main computational algorithm. Branches marked in blue indicate a significant contribution to wall time.}
+\label{fig:calltree}
+\end{figure}
+%*******************************************************************************
 
 A breakdown of wall time for the steps in \lst{nrn_fixed_step} is given in \fig{fig:calltree}. Some of the routines listed here have less than 1\% of wall time (including the linear system solve in \lst{nrn_solve_minimal}), however they are discussed below because their data access influence the implementation on many-core architectures (e.g. GPU and MIC).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
