@@ -1,14 +1,14 @@
 struct NrnThread {
   // linked list of Memb_list (mechanisms)
   NrnThreadMembList mechanisms;
-  int ncell;     // number of cells
-  int nnode;     // number of nodes
-  double *data;  // what is this data? Pramod?
-  double *rhs; // indexed by VEC_RHS
-  double *d;   // indexed by VEC_D
-  double *a;   // indexed by VEC_A
-  double *b;   // indexed by VEC_B
-  double *v;   // indexed by VEC_V
+  int ncell;   // number of cells
+  int nnode;   // number of nodes
+  double *data;// memory pool for this cell group
+  double *rhs; // VEC_RHS -> data
+  double *d;   // VEC_D -> data
+  double *a;   // VEC_A -> data
+  double *b;   // VEC_B -> data
+  double *v;   // VEC_V -> data
   int *parent_index; // indexed by p
 };
 // linked list for chaining 
@@ -17,8 +17,8 @@ struct NrnThreadMembList {
   struct Memb_list *mech_data; // pointer to memb_list[]
   int index;                   // index for  memb_func[]
 };
-union Datum {
-    double val; int i;          // values
+union ThreadDatum {
+    double val; int i;         // values
     double* pval; void* pvoid; // pointers
 };
 // holds the data for a mechanism
@@ -27,7 +27,7 @@ struct Memb_list { // nrnoc/nrnoc_ml.h
   // these index into matrix (i.e. VEC_*)
   int *nodeindices;
   double *data;
-  Datum  *pdata;
+  ThreadDatum  *pdata;
   int nodecount;
 };
 // function pointer for mechanism vtable implementation

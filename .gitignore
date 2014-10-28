@@ -16,3 +16,5 @@ test*
 *.bbl
 *.log
 *.out
+
+report.listing

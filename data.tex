@@ -1,86 +1,89 @@
-Up to this point the actual layout of data in memory has been treated in a somewhat abstract manner, with no detail about how it is actually implemented in \neuron. Indeed, the pseudo-code examples have treated the data for each mechanism as though it was stored as \emph{structure of arrays} (SoA), when it is in fact stored as \emph{array of scructures}.
+Up to this point the actual layout of data in memory has been treated in a somewhat abstract manner, with no detail about how it is actually implemented in \neuron.
+For example, the pseudo-code examples have treated the data for each mechanism as though it was stored as a \emph{structure of arrays} (SoA), when it is actually stored as an \emph{array of scructures}.
 
-Here we will describe the data layout as it is currently implemented. To design the fine-grained parallelization strategy and corresponding data structures, we must first understand the layout of data, and the data-access patterns of the different components.
+Here we will describe the data layout as it is currently implemented. Before generalizing the storage, and suggesting optimization strategies, we want to understand the current data model, and all of the use cases that it must support.
 
 \begin{note}
-It is my personal opinion that a good spot to start would be a simple serialization framework for reading and writing the state of a cell group in \neuron. This would be a good exercise in getting into the nitty-gritty of the memory layout, and could be used as input data for unit tests when trying out new approaches.
+A good spot to start refactoring would be a simple serialization framework for reading and writing the state of a cell group in \neuron. This would be a good exercise in getting into the nitty-gritty of the memory layout, and could be used as input data for unit tests when trying out new approaches.
 \end{note}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Parallel Data Distribution}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Each neuron cell is represented as of a tree of nodes, as illustrated in \fig{fig:tree}.
+The properties of individual cells, including the number of nodes and the type, number and distribution of synapses, vary significantly.
+These properties affect the computational resources required to perform a time step for a cell, e.g. cells with more synapses require more expensive \lst{state} and \lst{current} computations.
+The number and type of mechanisms in a cell can be used as an \textit{a-priori estimate} its computational complexity.
 
-\begin{itemize}
-\item
-    Each neuron cell is represented as of a tree of nodes, as illustrated in \fig{fig:tree}.
-\item
-    The properties of individual cells vary significantly, so that the computational resources required to process cells varies.
-\item
-    The biggest cause of this difference is the distribution of nodes with different mechanism types.
-\item
-    The \lst{states}/\lst{rates}/\lst{current} kernels of some mechanisms have much higher arithmetic intensity than others.
-\item
-    The combination of mechanisms in a cell, which varies between different cell types, can be used a-priori estimate it's computational complexity.
-\end{itemize}
+To ensure load balancing, cells are organized into groups that have roughly equivalent computational overheads during circuit generation.
+As a result, some cell groups have more cells than others to ensure that total computational effort required per group is balanced.
+Each group of cells is stored in a separate \file{.dat} file, which are then distributed in a round-robin fashion when simulation data is loaded in \lst{nrn_setup}.
 
-\begin{itemize}
+Parallelism is implemented distributing the cells, with individual cells processed serially.
+There are two levels of parallelism:
+\begin{enumerate}
 \item
-    To ensure load balancing, the cells are grouped into groups that have roughly equivalent computational overheads during circuit generation.
+    \textbf{MPI (course-grained)}: the cell groups are distributed between MPI ranks.
 \item
-    Some groups have more cells than others to ensure that total computational effort required per group is balanced.
-\item
-    Each group of cells is stored in a separate \file{.dat} file, which are then distributed in a round-robin fashion when a \neuron simulation is started.
-\end{itemize}
+    \textbf{Thread (fine-grained)}: each cell group on an MPI rank is assigned to a thread.
+\end{enumerate}
+Threading is performed using pthreads, with explicit communication of spike information between both threads and MPI processes.
+Each cell group is stored in a \lst{NrnThread} data structure (see \fig{lst:NrnThreadInfo}), which is named as such because each cell group is assinged to a thread (the name should be changed to better represent the data).
 
-\begin{itemize}
-\item
-    Parallelism is implemented distributing the cells, with individual cells processed serially.
-\item
-    There are two levels of parallelism:
-    \begin{enumerate}
-    \item
-        \textbf{MPI}: the cells are distributed between MPI ranks.
-    \item
-        \textbf{thread}: the cells on each MPI rank are then assigned to a \emph{thread}.
-    \end{enumerate}
-\item
-    Each thread stores the cells assigned to it in a \lst{NrnThread} data structure (see \fig{lst:NrnThread})
-\item
-    There is one \lst{NrnThread} data structure for each thread.
-\item
-    Threading is performed using pthreads, with explicit communication of spike information between threads and between MPI processes.
-\end{itemize}
-
+\begin{note}
+The fine fine-grained parallelism could be implemented on a finer scale than it currently is, i.e. with multiple threads processing each cell group/cell. There was a CUDA implementation of Neuron that took this approach, and on the GPU this is probably necessary to expose enough parallelism. There have been some successful tests on the Xeon Phi where each thread was assigned a cell group.
+\end{note}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{Thread Storage}
+\subsection{Cell Groups}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-Overview of storage of cells in one thread:
-\begin{itemize}
-\item
-    Each thread has multiple cells assigned to it.
-\item
-    For the TEST2 dataset:
+The cells in a cell group are ``flattened'' together in the \lst{NrnThread} data structure, i.e. individual cells are not stored seperately.
+As an example, for the TEST2 dataset distributed with the PCP:
     \begin{itemize}
     \item
-        there are around 60--70 cells per thread.
+        there are around 60--70 cells per cell group.
     \item
         each cell has of the order 400--450 nodes.
     \item
-        each thread has 25,000--30,000 nodes.
+        each cell group has 25,000--30,000 nodes in total.
     \end{itemize}
-\item
-    The nodes for all cells are stored in one flat array
-    \begin{itemize}
-    \item
-        Given have $n_c$ cells and a total of $n$ nodes, the root nodes are indexed \lst{[1:n_c]}, and the rest of the nodes are indexed \lst{[n_c+1:n]}.
-    \item
-        This is evident in the loops over \lst{child_nodes=ncells+1:nnondes} and \lst{1:ncells}
-    \end{itemize}
-\end{itemize}
+    The cells are packed together with all node and mechanism data for all nodes in all cells in the cell group packed into flat arrays.
+        Given $n_c$ cells in the cell group with a total of $n$ nodes, the root nodes are indexed \lst{[1:n_c]}, and the rest of the nodes are indexed \lst{[n_c+1:n]}\footnote{This is evident in the loops over \lst{child_nodes=ncells+1:nnondes} and \lst{1:ncells}}.
 
-\noindent
-Mechanisms in Neuron are implemented using the \hoc DSL, which is translated into C code.
-\neuron has the C files allready translated from the \hoc files that are used by BBP\footnote{This reduces the complexity of \neuron, decoupling \neuron from Neuron, which will make it easier modify how the mechanisms are defined.}.
+%-----------------------------------------------------------------------------
+\begin{note}
+Storing the cells in the cell group as such means that all of the steps in a timestep in \fig{fig:timestepDiagram} are applied to the entire cell group, not to individual cells.
+This ignores the fact that the cells can be integrated in time independently, with coordination only required when communicating spike events.
+An obvious approach for introducing more fine-grained parallelism is to distriubute individual cells, not cell groups, between threads.
+This approach exposes more work that can be performed in parallel, however, it has load balancing issues, because of the variation in complexity between indivdual cells.
+\end{note}
+%-----------------------------------------------------------------------------
+
+The main storage requirements for a mechanism are storing the vectors relating to the linear system and the vectors that describe mechanism state.
+These vectors are not allocated separately, instead a single memory buffer is allocated (\lst{NrnThread::data[]}), and the vector pointers point to sub-arrays in \lst{NrnThread::data[]}
+\footnote{
+Allocating memory in one large block is more memory efficient than allocating many smaller vectors with individual calls to \lst{malloc}.
+}.
+This process of allocating the memory is performed in the function \lst{read_phase2} in \file{nrniv/nrn_setup.cpp}.
+
+The layout of vectors in the \lst{data[]} array is shown in \fig{}.
+When the cell group is read from file, the total size of the \lst{data[]} array is determined, then the memory allocated.
+The vectors that describe the linear system and the area of each node, \lst{[VEC_RHS, VEC_D, VEC_A, VEC_B, VEC_V, actual_area]}, are placed at the front of the data vector.
+The state data for the mechanism then follows.
+
+%------------------------------------------------------------------
+\begin{figure}[htp!]
+\input{images/dataStorage.tex}
+\caption{Layout of matrix and mechanism state data for a cell group.}
+\end{figure}
+%------------------------------------------------------------------
+
+\todo{are ion channels "one per node"?}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{The Neuron DSL and \hoc Files}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Mechanisms in Neuron are described using a DSL, which is translated into C code from \hoc files.
+\neuron has the C files translated from the \hoc files that used by HBPNeuron\footnote{This reduces the complexity of \neuron, decoupling \neuron from Neuron, which will make it easier modify how the mechanisms are defined.}.
 The translated mechanism definitions are in \file{mech/cfiles}, with one mechanism per C source file.
 Each file defines functions (like \lst{jacob}, \lst{current}, \lst{alloc}) and meta-data (such as the number of variables required to store a mechanism's state for a node in the tree).
 \begin{itemize}
@@ -123,27 +126,19 @@ Mechanisms and their storage:
     \end{itemize}
 \end{itemize}
 
+%------------------------------------------------------------------
+\filelisting[C++] {./code/storage.cpp}{cell group storge in a \texttt{NrnThread} struct}
+%\label{lst:NrnThreadInfo}
+\filelisting[C++] {./code/register_mech.cpp}{registering a mechanism}
+%\label{lst:register_mech}
+%------------------------------------------------------------------
 
-\begin{figure}
-\begin{shaded}
-\lstinputlisting [language=C++,breaklines=true] {./code/storage.cpp}
-\end{shaded}
-\label{lst:NrnThreadInfo}
-\caption{The thread (\lst{NrnThread}), mechanism data (\lst{Memb_list}) and mechanism functionality (\lst{Memb_func}) types. I have removed and renamed much of the members to make them better match the pseudo code. Some C++ coding style has also been used.}
-\end{figure}
-
-\begin{figure}
-\begin{shaded}
-\lstinputlisting [language=C++,breaklines=true] {./code/register_mech.cpp}
-\end{shaded}
-\label{lst:register_mech}
-\caption{The routines used in registering a mechanism}
-\end{figure}
-
+%------------------------------------------------------------------
 \begin{figure}[htp!]
 \input{images/AoSvsSoA.tex}
 \caption{The current AoS layout of mechanism parameters for all applicable nodes.}
 \end{figure}
+%------------------------------------------------------------------
 
 \noindent
 Observations

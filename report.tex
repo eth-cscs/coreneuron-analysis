@@ -7,16 +7,19 @@
 \usepackage{xspace}
 \usepackage{fullpage}
 \usepackage{tikz}
-\usetikzlibrary{positioning}
 \usepackage{pgfplots}
 \usepackage{pgfplotstable}
 \usepackage{textcomp}
 \usepackage{multirow}
-\usetikzlibrary{shapes,arrows}
+\usetikzlibrary{positioning}
+\usetikzlibrary{shapes,arrows,backgrounds,fit,shapes.geometric,calc}
 \usetikzlibrary{pgfplots.groupplots}
 \usepackage{url}
 \usepackage{listings}
+\usepackage{lstautogobble}
 \usepackage{framed}
+\usepackage{tcolorbox}
+
 
 \newcommand{\todo}[1]{\textbf{\textcolor{Blue}{TODO: #1}}}
 \newcommand{\hilight}[1]{\textit{\textcolor{Red}{#1}}}
@@ -42,10 +45,38 @@
 \newcommand{\attplushalf}[1]{{#1}^{n+\frac{1}{2}}}
 \newcommand{\hoc}{\lst{.mod}\xspace}
 
-% this defines a note environment by defining a new theorem environment.
-% it would be nice to look at creating a new environment type with a box
-% box, title, and colour to make notes stand out.
-\newtheorem{note}{Note}
+% is tcolorbox the greatest package ever? Probably!
+% TODO: investigate using it to make the listings beautiful and easy to follow
+\tcbuselibrary{listings}
+\tcbuselibrary{breakable}
+
+% this defines a note environment
+\newenvironment{note}
+{\begin{tcolorbox}[colframe=blue!70!black,breakable,colback=blue!5,title=Note,fonttitle=\bfseries]}
+{\end{tcolorbox}}
+
+% takes 3 options : (file, )
+\newtcbinputlisting[auto counter]{\filelisting}[3][C++]{
+    listing file=#2,
+    listing options={language=#1,autogobble},
+    title=Listing \thetcbcounter: #3,
+    fonttitle=\bfseries,
+    breakable,
+    colback=green!5!white,
+    colframe=green!35!black,
+    listing only
+}
+
+\newtcblisting[auto counter]{inlinelisting}[2]
+{
+    listing options={language=#1,autogobble},
+    title=Listing \thetcbcounter: {#2},
+    fonttitle=\bfseries,
+    breakable,
+    colback=green!5!white,
+    colframe=green!35!black,
+    listing only
+}
 
 % redefine emph for more... emphasis
 \DeclareTextFontCommand{\emph}{\bfseries}
@@ -69,10 +100,9 @@
 
 \lstset{
     language=[ANSI]C++,
-    %numbers=left,
     basicstyle=\small\ttfamily,
     identifierstyle=\color{Blue}\small\ttfamily,
-    keywordstyle=\color{Red}\small\ttfamily\bf,
+    keywordstyle=\color{Red}\small\ttfamily,
     commentstyle=\color{OliveGreen}\small\ttfamily,
     breaklines=true
 }

@@ -1,0 +1,49 @@
+\tikzset{
+    %Define standard arrow tip
+    >=stealth',
+    % Define arrow style
+    pil/.style={
+           ->,
+           thick,
+           shorten <=2pt,
+           shorten >=2pt,}
+}
+\newcommand{\nodewidth}{1.1cm}
+\newcommand{\nodeheight}{0.75cm}
+\begin{tikzpicture}[x=0cm, y=0cm, node distance=0 cm,outer sep = 0pt]
+\tikzstyle{nvec}=[draw, rectangle,  minimum height=\nodeheight, minimum width=\nodewidth, fill=yellow!20,anchor=south west,minimum width=1.5cm]
+\tikzstyle{mch0}=[draw, rectangle,  minimum height=\nodeheight, minimum width=\nodewidth, fill=green!20,anchor=south west,minimum width=1cm]
+\tikzstyle{mch1}=[draw, rectangle,  minimum height=\nodeheight, minimum width=\nodewidth, fill=blue!20,anchor=south west,minimum width=2.5cm]
+\tikzstyle{mch2}=[draw, rectangle,  minimum height=\nodeheight, minimum width=\nodewidth, fill=red!20,anchor=south west,minimum width=0.5cm]
+\tikzstyle{blank}=[draw=none, fill=white, rectangle, minimum height=\nodeheight, minimum width=1cm, anchor=south west]
+\tikzstyle{over}=[draw=black, fill=white, rectangle,  minimum height=\nodeheight, minimum width=3.3cm, anchor=south west]
+\tikzstyle{pointer}=[draw=black, fill=white, rectangle,  minimum height=\nodeheight, minimum width=1cm, anchor=south west]
+
+\node[pointer] (data) at (0,0)         {\lst{data}};
+\node[nvec] (vecr)    [right = 1cm of data] {\lst{VEC_RHS}}
+    edge[pil,<-] (data.east);
+\node[nvec] (vecd)    [right = of vecr] {\lst{VEC_D}};
+\node[nvec] (veca)    [right = of vecd] {\lst{VEC_A}};
+\node[nvec] (vecb)    [right = of veca] {\lst{VEC_B}};
+\node[nvec] (vecv)    [right = of vecb] {\lst{VEC_V}};
+\node[nvec] (vecarea) [right = of vecv] {\lst{area}};
+\node[mch0] (m0)      [right = of vecarea] {$M_0$};
+\node[mch1] (m1)      [right = of m0] {$M_1$};
+\node[blank](dd)      [right = of m1] {...};
+\node[mch2] (m2)      [right = of dd] {$M_n$};
+
+
+\draw[decorate,decoration={brace,raise=4pt,amplitude=10pt},thick]
+  (vecr.north west)--(vecv.north east)
+  node[midway,yshift=25pt] (matbrace) {\sc Matrix};
+
+\draw[decorate,decoration={brace,raise=4pt,amplitude=10pt},thick]
+  (m0.north west)--(m2.north east)
+  node[midway,yshift=25pt] (mechbrace) {\sc Mechanisms};
+
+\tikzset{typeline/.style={draw=black, line width=1pt,
+                          inner sep=4mm, rectangle, rounded corners}};
+\node (nrnthread)[typeline,
+                  fit = (vecr)(data)(vecd)(veca)(vecb)(vecv)(vecarea)(m0)(m1)(dd)(m2)(matbrace)(mechbrace)] {};
+
+\end{tikzpicture}
