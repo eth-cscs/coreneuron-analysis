@@ -1,4 +1,4 @@
-PDFS=calltree.pdf bbs_netpar_solve.pdf tree.pdf discrete.pdf discrete_a.pdf discrete_b.pdf  discrete_c.pdf discrete_d.pdf timestep_flow.pdf
+PDFS=calltree.pdf bbs_netpar_solve.pdf tree.pdf discrete.pdf discrete_a.pdf discrete_b.pdf  discrete_c.pdf discrete_d.pdf timestep_flow.pdf dataStorage.pdf
 all: ${PDFS}
 
 calltree.pdf: calltree.dot
@@ -27,6 +27,9 @@ discrete_d.pdf: discrete_d.dot
 
 timestep_flow.pdf: timestep_flow.tex
 	pdflatex timestep_flow.tex
+
+dataStorage.pdf: dataStorage.tex
+	pdflatex dataStorage.tex
 
 clean:
 	rm -f ${PDFS}

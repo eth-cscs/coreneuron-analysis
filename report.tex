@@ -7,13 +7,13 @@
 \usepackage{xspace}
 \usepackage{fullpage}
 \usepackage{tikz}
+\usetikzlibrary{positioning}
+\usetikzlibrary{shapes,arrows,backgrounds,fit,shapes.geometric,calc}
+\usetikzlibrary{pgfplots.groupplots}
 \usepackage{pgfplots}
 \usepackage{pgfplotstable}
 \usepackage{textcomp}
 \usepackage{multirow}
-\usetikzlibrary{positioning}
-\usetikzlibrary{shapes,arrows,backgrounds,fit,shapes.geometric,calc}
-\usetikzlibrary{pgfplots.groupplots}
 \usepackage{url}
 \usepackage{listings}
 \usepackage{lstautogobble}
@@ -24,7 +24,8 @@
 \newcommand{\todo}[1]{\textbf{\textcolor{Blue}{TODO: #1}}}
 \newcommand{\hilight}[1]{\textit{\textcolor{Red}{#1}}}
 \newcommand{\lst}[1]{\lstinline!#1!}
-\newcommand{\fig}[1]{{Fig.}~\ref{#1}}
+\newcommand{\lstref}[1]{Listing~\ref{#1}}
+\newcommand{\fig}[1]{{Figure}~\ref{#1}}
 \newcommand{\sect}[1]{{Section}~\ref{#1}}
 \newcommand{\eq}[1]{(\ref{#1})}
 \newcommand{\ap}[1]{Appendix~\ref{#1}}
@@ -45,8 +46,7 @@
 \newcommand{\attplushalf}[1]{{#1}^{n+\frac{1}{2}}}
 \newcommand{\hoc}{\lst{.mod}\xspace}
 
-% is tcolorbox the greatest package ever? Probably!
-% TODO: investigate using it to make the listings beautiful and easy to follow
+% use tcolorbox for listings and notes
 \tcbuselibrary{listings}
 \tcbuselibrary{breakable}
 
@@ -55,26 +55,37 @@
 {\begin{tcolorbox}[colframe=blue!70!black,breakable,colback=blue!5,title=Note,fonttitle=\bfseries]}
 {\end{tcolorbox}}
 
-% takes 3 options : (file, )
-\newtcbinputlisting[auto counter]{\filelisting}[3][C++]{
+% takes 3 options : (language, file, title, labelname)
+\newcounter{listingcounter}
+
+\newcommand{\listingcounter}{\refstepcounter{listingcounter}\thelistingcounter}
+\newtcbinputlisting[auto counter]{\filelisting}[4][C++]{
     listing file=#2,
     listing options={language=#1,autogobble},
-    title=Listing \thetcbcounter: #3,
+    title=Listing \listingcounter: {#3} \label{#4},
     fonttitle=\bfseries,
     breakable,
     colback=green!5!white,
     colframe=green!35!black,
+    left=3pt,
+    top=-5pt,
+    bottom=-5pt,
+    right=3pt,
     listing only
 }
 
-\newtcblisting[auto counter]{inlinelisting}[2]
+\newtcblisting[auto counter]{inlinelisting}[3]
 {
     listing options={language=#1,autogobble},
-    title=Listing \thetcbcounter: {#2},
+    title=Listing \listingcounter: {#2} \label{#3},
     fonttitle=\bfseries,
     breakable,
     colback=green!5!white,
     colframe=green!35!black,
+    left=3pt,
+    top=-5pt,
+    bottom=-5pt,
+    right=3pt,
     listing only
 }
 
@@ -87,7 +98,8 @@
         if, elseif, else,
         for, while, end, in, using, local,
         type, function, return, yieldto, try, catch, error, throw, begin, quote,
-        Int, Int32, Int64, Float, Float32, Float64, Array, Any
+        Int, Int32, Int64, Float, Float32, Float64, Array, Any,
+        true, false
     },
     sensitive = true,
     morecomment=[l]\#,
@@ -101,9 +113,9 @@
 \lstset{
     language=[ANSI]C++,
     basicstyle=\small\ttfamily,
-    identifierstyle=\color{Blue}\small\ttfamily,
+    identifierstyle=\color{Black}\small\ttfamily,
     keywordstyle=\color{Red}\small\ttfamily,
-    commentstyle=\color{OliveGreen}\small\ttfamily,
+    commentstyle=\color{green!30!black}\bf\small\ttfamily,
     breaklines=true
 }
 \lstset{
