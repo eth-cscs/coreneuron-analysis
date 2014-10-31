@@ -1,5 +1,5 @@
 IMAGES=images/*.pdf
-TEXFILES=report.tex timestep_impl.tex appendix_*.tex benchmarking.tex overview.tex maths.tex data.tex
+TEXFILES=*.tex
 
 report.pdf : $(TEXFILES) $(IMAGES)
 	pdflatex --shell-escape report

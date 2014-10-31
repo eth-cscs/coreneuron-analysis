@@ -19,9 +19,9 @@
 \usepackage{lstautogobble}
 \usepackage{framed}
 \usepackage{tcolorbox}
+\usepackage{enumitem}
 
 
-\newcommand{\todo}[1]{\textbf{\textcolor{Blue}{TODO: #1}}}
 \newcommand{\hilight}[1]{\textit{\textcolor{Red}{#1}}}
 \newcommand{\lst}[1]{\lstinline!#1!}
 \newcommand{\lstref}[1]{Listing~\ref{#1}}
@@ -50,15 +50,42 @@
 \tcbuselibrary{listings}
 \tcbuselibrary{breakable}
 
+% my own counters
+\newcounter{listingcounter}
+\newcounter{tablecounter}
+\newcounter{figurecounter}
+\newcommand{\listingcounter}{\refstepcounter{listingcounter}\thelistingcounter}
+\newcommand{\tablecounter}{\refstepcounter{tablecounter}\thetablecounter}
+\newcommand{\figurecounter}{\refstepcounter{figurecounter}\thefigurecounter}
+
 % this defines a note environment
 \newenvironment{note}
 {\begin{tcolorbox}[colframe=blue!70!black,breakable,colback=blue!5,title=Note,fonttitle=\bfseries]}
 {\end{tcolorbox}}
 
-% takes 3 options : (language, file, title, labelname)
-\newcounter{listingcounter}
+\newenvironment{todo}
+{\begin{tcolorbox}[colframe=red!50!yellow,breakable,colback=red!5,title=Todo,fonttitle=\bfseries]}
+{\end{tcolorbox}}
 
-\newcommand{\listingcounter}{\refstepcounter{listingcounter}\thelistingcounter}
+\newenvironment{infobox}[1]
+{\begin{tcolorbox}[colframe=red!70,breakable,colback=red!10,title=#1,fonttitle=\bfseries]}
+{\end{tcolorbox}}
+
+\newenvironment{mytable}[2]
+{
+\begin{tcolorbox}[colframe=black,colback=white,title=Table \tablecounter: {#1} \label{#2},fonttitle=\bfseries]
+}
+{\end{tcolorbox}}
+
+\newenvironment{myfigure}[2]
+{
+\begin{tcolorbox}[colframe=black,colback=white,title=Figure \figurecounter: {#1} \label{#2},fonttitle=\bfseries]
+    % todo : adding float=htp! to the options messes with alignment
+}
+{\end{tcolorbox}}
+
+% takes 3 options : (language, file, title, labelname)
+
 \newtcbinputlisting[auto counter]{\filelisting}[4][C++]{
     listing file=#2,
     listing options={language=#1,autogobble},
@@ -68,8 +95,8 @@
     colback=green!5!white,
     colframe=green!35!black,
     left=3pt,
-    top=-5pt,
-    bottom=-5pt,
+    top=-3pt,
+    bottom=-3pt,
     right=3pt,
     listing only
 }
@@ -83,8 +110,8 @@
     colback=green!5!white,
     colframe=green!35!black,
     left=3pt,
-    top=-5pt,
-    bottom=-5pt,
+    top=-3pt,
+    bottom=-3pt,
     right=3pt,
     listing only
 }
@@ -112,10 +139,10 @@
 
 \lstset{
     language=[ANSI]C++,
-    basicstyle=\small\ttfamily,
-    identifierstyle=\color{Black}\small\ttfamily,
-    keywordstyle=\color{Red}\small\ttfamily,
-    commentstyle=\color{green!30!black}\bf\small\ttfamily,
+    basicstyle=\footnotesize\ttfamily,
+    identifierstyle=\color{Black}\footnotesize\ttfamily,
+    keywordstyle=\color{Red}\footnotesize\ttfamily,
+    commentstyle=\color{green!30!black}\bf\footnotesize\ttfamily,
     breaklines=true
 }
 \lstset{
@@ -124,7 +151,7 @@
           pw_new_collector,
           pw_print_table
     },
-    emphstyle={\color{Bittersweet}\bfseries\normalsize}
+    emphstyle={\color{Bittersweet}\bfseries\small}
 }
 
 \definecolor{shadecolor}{rgb}{0.8,0.8,0.8}
@@ -158,7 +185,7 @@ Note that HBPNeuron refers to the Neuron plus the \hoc files used to define the 
 \section{The Code}
 \input{overview.tex}
 
-\clearpage
+%\clearpage
 \section{The Algorithm}
 \input{maths.tex}
 

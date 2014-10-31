@@ -121,21 +121,19 @@ The inner part of each time step is implemented in the function \lst{nrn_fixed_s
 %*******************************************************************************
 
 %*******************************************************************************
-\begin{figure}[htp!]
+\begin{myfigure}{description of inner time step}{fig:timestepDiagram}
 \centering
 \includegraphics[width=0.75\textwidth]{./images/timestep_flow.pdf}
-\caption{Description of a single time step.}
-\label{fig:timestepDiagram}
-\end{figure}
+\end{myfigure}
 %*******************************************************************************
 
 %*******************************************************************************
-\begin{figure}[htp!]
-\centering
+\begin{myfigure}{call tree timings}{fig:calltree}
+\begin{center}
 \includegraphics[width=\textwidth]{./images/calltree.pdf}
-\caption{Calltree and percentage of wall time contribution for the main computational algorithm. Branches marked in blue indicate a significant contribution to wall time.}
-\label{fig:calltree}
-\end{figure}
+\end{center}
+Calltree and percentage of wall time contribution for the main computational algorithm. Branches marked in blue indicate a significant contribution to wall time.
+\end{myfigure}
 %*******************************************************************************
 
 A breakdown of wall time for the steps in \lst{nrn_fixed_step} is given in \fig{fig:calltree}. Some of the routines listed here have less than 1\% of wall time (including the linear system solve in \lst{nrn_solve_minimal}), however they are discussed below because their data access influence the implementation on many-core architectures (e.g. GPU and MIC).
@@ -184,9 +182,9 @@ Instead of being applied to just \lst{VEC_RHS[1]}, it is applied to \lst{VECH_RH
 \subsubsection{Advancing the solution: \lst{update}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 These routines have almost no computational overhead, but they are included here to record their data access patterns.
-The solution to the linear system, stored in \lst{VEC_RHS} is actually the delta in solution, that is $\at{\text{RHS}} = \at{V}^{n+1} - \at{V}^{n}$.
-The \lst{update} function updates the solution in \lst{VEC_V} by adding the contribution in \lst{VEC_RHS}.
-The \lst{update} function is the only part of the \neuron code that successfully vectorizes, because of the stride-one data access pattern in the update.
+The solution to the linear system in \lst{VEC_RHS} is actually the delta in solution, that is $\at{\text{RHS}} = \at{V}^{n+1} - \at{V}^{n}$.
+The \lst{update} function updates the solution in \lst{VEC_V} by adding the contribution in \lst{VEC_RHS},
+and is the only part of the \neuron code that successfully vectorizes with \texttt{gcc}, because of the stride-one data access pattern in the update.
 
 The \lst{second_order_cur} routine is used to ensure that current is up to date for ion channels before the solution update is applied, in case they are required for reporting, i.e. the results are not used in the solution.
 
@@ -205,7 +203,7 @@ The \lst{state} function defined in the \hoc implementation, and are specialized
 \filelisting [julia] {./code/state.jl}{integrating the currents}{lst:state}
 
 \begin{note}
-    Many of the floating point operations in the \lst{state/rate/current} functions derived from the \hoc files are redundant. For example, in the example in \lstref{lst:state} no attempt is made to take advantage of identities like $\text{e}^{-x}=1/\text{e}^{x}$. Removing these operations during code generation would reduce the computational compexity of the code.
+    Many of the floating point operations in the \lst{state/rate/current} functions are redundant. For example, in \lstref{lst:state} no attempt is made to take advantage of identities like $\text{e}^{-x}=1/\text{e}^{x}$. Removing these operations during code generation would reduce the computational compexity.
 \end{note}
 
 \begin{note}

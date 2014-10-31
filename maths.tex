@@ -32,8 +32,17 @@ Here the one-dimensional discretization in the previous section will be extend t
 
 A small tree structure that will be used throughout this section is illustrated in \fig{fig:tree}(a). It is important to note that the graph formed by the branching sections is a true tree, i.e. it has no circuits (once a section has branched, the branches can not ``rejoin'').
 
-\begin{figure}[htp!]
-\centering
+\begin{infobox}{Terms used describing discretization of trees}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{section} a branch in the tree structure, which corresponds to the one-dimensional line segment between branch points. These are numbered $s*$ in \fig{fig:tree}(a).
+    \item \textbf{branch} same definition as section.
+    \item \textbf{node} a point in the spatial discretization. These are numbered in \fig{fig:tree}(b).
+    \item \textbf{branch node} a node where two branches join. These are the blue points denoted $n*$ \fig{fig:tree}(a).
+\end{itemize}
+\end{infobox}
+
+\begin{myfigure}{example of numbering of nodes and branches}{fig:tree}
+\begin{center}
 \includegraphics[width=0.6\textwidth]{./images/tree.pdf}
 \\{\normalsize (a)}\\
 \includegraphics[width=\textwidth]{./images/discrete_a.pdf}
@@ -42,19 +51,9 @@ A small tree structure that will be used throughout this section is illustrated 
 \includegraphics[width=\textwidth]{./images/discrete_d.pdf}
 \includegraphics[width=\textwidth]{./images/discrete.pdf}
 \\{\normalsize (b)}
-\caption{Numbering of nodes and edges for Hines algorithm. (a) The high level branch and connection numbering scheme, with the branch nodes and sections numbered; (b) the numbering of individual nodes in the fully discretized domain with 5 segments per section.}
-\label{fig:tree}
-\end{figure}
-
-Some terms used in discussing the tree structure in \fig{fig:tree}(a)\&(b) are:
-\begin{itemize}
-        \item \textbf{section} a branch in the tree structure, which corresponds to the one-dimensional line segment between branch points. These are numbered $s*$ in \fig{fig:tree}(a).
-        \item \textbf{branch} same definition as section.
-        \item \textbf{node} a point in the spatial discretization. These are numbered in \fig{fig:tree}(b).
-        \item \textbf{branch node} a node where two branches join. These are the blue points denoted $n*$ \fig{fig:tree}(a).
-%        \item \textbf{terminal branch} a branch that is one node that has one end that is connected to no other branches.
-%        \item \textbf{terminal node} a node that lies at the end of a branch that connects to no other branches. These correspond to $n1$, $n4$, $n5$ and $n6$ in \fig{fig:tree}(a).
-\end{itemize}
+\end{center}
+(a) The high level branch and connection numbering scheme, with the branch nodes and sections numbered; (b) the numbering of individual nodes in the fully discretized domain with 5 segments per section.
+\end{myfigure}
 
 The first step of the spatial discretization is to discretize each one-dimensional section. Then the nodes are numbered using a scheme that gives the matrix a sparsity structure that allows the linear system to be solved in linear time, equivalent to Thomas algorithm.
 
@@ -69,15 +68,16 @@ A numbering scheme for the nodes that facilitates efficient solution of the line
 \end{enumerate}
 The key property that is maintained by the numbering scheme is that the index of a node's parent node is lower than the node's index (equivalent to \emph{minimum degree ordering}). An example of a numbering strategy being recursively applied to our example tree is shown in \fig{fig:tree}(b).
 
-\begin{figure}[htp!]
-\centering
+\begin{myfigure}{matrix sparsity pattern}{fig:sparsity}
+\begin{center}
 \includegraphics[width=0.5\textwidth]{./images/sparsity.pdf}
-\caption{Sparsity pattern of the matrix corresponding to the tree numbering in \fig{fig:tree}.}
-\label{fig:sparsity}
-\end{figure}
+\end{center}
+Sparsity pattern of the matrix corresponding to the tree numbering in \fig{fig:tree}.
+\end{myfigure}
 
 To describe the sparsity pattern of the matrix from this numbering only the parent indexes, $p_i\quad i\in[2:n]$, for each node need to be stored. The matrix sparsity pattern, which is illustrated for our example tree numbering in \fig{fig:sparsity}, has the following properties:
-\begin{itemize}
+\begin{infobox}{Properties of the linear system}
+\begin{itemize}[leftmargin=*]
     \item
         The sparsity pattern is symmetric.
     \item
@@ -93,6 +93,7 @@ To describe the sparsity pattern of the matrix from this numbering only the pare
         \end{align}
         where $k=p_i$.
 \end{itemize}
+\end{infobox}
 
 \begin{note}
 The choice of the root node and the traversal order when generating the numbering is important if trying to solve the linear system in parallel. It is possible to solve sub-trees that branch from a branch node independently, before combining the results to solve the value at the branch node. For sequential solution on the CPU this isn't important, however a GPU implementation might try to take advantage of this.
@@ -150,6 +151,8 @@ So that our submatrix now looks like
 The algorithm proceeds by eliminating the values in the upper triangle with a backward sweep over columns $n:-1:2$.
 A forward sweep is then used to eliminate the nonzeros in the lower triangle, determine the solution.
 
+\begin{note}
 In practice, this algorithm is very efficient, contributing less than 1\% to the time to solution in the benchmarks released with the PCP. 
+\end{note}
 
 

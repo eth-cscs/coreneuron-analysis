@@ -1,5 +1,5 @@
-Up to this point the actual layout of data in memory has been treated in a somewhat abstract manner, with no detail about how it is actually implemented in \neuron.
-For example, the pseudo-code examples have treated the data for each mechanism as though it was stored as a \emph{structure of arrays} (SoA), when it is actually stored as an \emph{array of scructures}.
+Up to this point the layout of data in memory has been treated in an abstract manner, with no detail about how it is actually implemented in \neuron.
+For example, the pseudo-code examples have treated the data for each mechanism as though it was stored as a \emph{structure of arrays (SoA)}, when it is actually stored as an \emph{array of scructures (AoS)}.
 
 Here we will describe the data layout as it is currently implemented. Before generalizing the storage, and suggesting optimization strategies, we want to understand the current data model, and all of the use cases that it must support.
 
@@ -13,41 +13,50 @@ A good spot to start refactoring would be a simple serialization framework for r
 Each neuron cell is represented as of a tree of nodes, as illustrated in \fig{fig:tree}.
 The properties of individual cells, including the number of nodes and the type, number and distribution of synapses, vary significantly.
 These properties affect the computational resources required to perform a time step for a cell, e.g. cells with more synapses require more expensive \lst{state} and \lst{current} computations.
-The number and type of mechanisms in a cell can be used as an \textit{a-priori estimate} its computational complexity.
+The number and type of mechanisms in a cell can be used as an \textit{a-priori} estimate of its computational complexity.
 
-To ensure load balancing, cells are organized into groups that have roughly equivalent computational overheads during circuit generation.
+To ensure load balancing, cells are organized into groups during circuit generation, where each group has roughly equivalent computational overhead.
 As a result, some cell groups have more cells than others to ensure that total computational effort required per group is balanced.
 Each group of cells is stored in a separate \file{.dat} file, which are then distributed in a round-robin fashion when simulation data is loaded in \lst{nrn_setup}.
 
-Parallelism is implemented distributing the cells, with individual cells processed serially.
-There are two levels of parallelism:
+Inside the time stepping loop individual cells can be integrated in parallel, with no dependencies between the cells.
+The parallelism strategy is based on this observation, with cell groups distributed between parallel processes.
+That is, the basic unit of parallel work is a cell group, not individual cells, or a more fine-grained unit like individual mechanisms or nodes in cells.
+
+Parallelism is implemented at two levels of granularity:
 \begin{enumerate}
 \item
     \textbf{MPI (course-grained)}: the cell groups are distributed between MPI ranks.
 \item
     \textbf{Thread (fine-grained)}: each cell group on an MPI rank is assigned to a thread.
 \end{enumerate}
-Threading is performed using pthreads, with explicit communication of spike information between both threads and MPI processes.
-Each cell group is stored in a \lst{NrnThread} data structure (see \fig{lst:NrnThreadInfo}), which is named as such because each cell group is assinged to a thread (the name should be changed to better represent the data).
+Threading uses pthreads, with explicit communication of spike information between both threads and MPI processes.
+Each cell group is stored in a \lst{NrnThread} data structure (see \fig{lst:NrnThreadInfo}), which is named as such because each cell group is assigned to a thread (the name could be changed to better represent the data).
 
 \begin{note}
 The fine fine-grained parallelism could be implemented on a finer scale than it currently is, i.e. with multiple threads processing each cell group/cell. There was a CUDA implementation of Neuron that took this approach, and on the GPU this is probably necessary to expose enough parallelism. There have been some successful tests on the Xeon Phi where each thread was assigned a cell group.
 \end{note}
+\begin{todo}
+There may be features added to \neuron that will introduce tighter coupling between cells during time step integration. Get Francesco and Michael to help understand what these are, and what impact they will have.
+\end{todo}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Cell Groups}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 The cells in a cell group are ``flattened'' together in the \lst{NrnThread} data structure, i.e. individual cells are not stored seperately.
 As an example, for the TEST2 dataset distributed with the PCP:
-    \begin{itemize}
-    \item
-        there are around 60--70 cells per cell group.
-    \item
-        each cell has of the order 400--450 nodes.
-    \item
-        each cell group has 25,000--30,000 nodes in total.
-    \end{itemize}
+\begin{infobox}{Cell group statistics for the TEST2 data set}
+\begin{itemize}[leftmargin=*]
+\item
+    There are around 60--70 cells per cell group.
+\item
+    Each cell has of the order 400--450 nodes.
+\item
+    Each cell group has 25,000--30,000 nodes in total.
+\end{itemize}
+\end{infobox}
     The cells are packed together with all node and mechanism data for all nodes in all cells in the cell group packed into flat arrays.
-        Given $n_c$ cells in the cell group with a total of $n$ nodes, the root nodes are indexed \lst{[1:n_c]}, and the rest of the nodes are indexed \lst{[n_c+1:n]}\footnote{This is evident in the loops over \lst{child_nodes=ncells+1:nnondes} and \lst{1:ncells}}.
+        Given $n_c$ cells in the cell group with a total of $n$ nodes, the root nodes are indexed \lst{[1:n_c]}, and the rest of the nodes are indexed \lst{[n_c+1:n]}. This is the reason that the loops in the tridiagonal solve are over \lst{child_nodes=ncells+1:nnondes} and not over \lst{child_nodes=1:nnodes} in \lstref{lst:solveminimal}.
 
 %-----------------------------------------------------------------------------
 \begin{note}
@@ -58,8 +67,8 @@ This approach exposes more work that can be performed in parallel, however, it h
 \end{note}
 %-----------------------------------------------------------------------------
 
-The main storage requirements for a mechanism are storing the vectors relating to the linear system and the vectors that describe mechanism state.
-These vectors are not allocated separately, instead a single memory buffer is allocated (\lst{NrnThread::data[]}), and the vector pointers point to sub-arrays in \lst{NrnThread::data[]}
+The main storage requirements for a mechanism are storing the vectors that describe the linear system, and the vectors that describe state for each mechanism.
+These vectors are not allocated separately, instead a single memory buffer is allocated (\lst{NrnThread::data[]}), and pointers for matrix vectors and mechanism state point to sub-arrays in \lst{NrnThread::data[]}
 \footnote{
 Allocating memory in one large block is more memory efficient than allocating many smaller vectors with individual calls to \lst{malloc}.
 }.
@@ -68,19 +77,39 @@ This process of allocating the memory is performed in the function \lst{read_pha
 The layout of vectors in the \lst{data[]} array is shown in \fig{fig:dataLayout}.
 When the cell group is read from file, the total size of the \lst{data[]} array is determined, then the memory allocated.
 The vectors that describe the linear system and the area of each node, \lst{[VEC_RHS, VEC_D, VEC_A, VEC_B, VEC_V, actual_area]}, are placed at the front of the data vector.
-The state data for the mechanism then follows.
+The state data for the mechanisms are then packed at the end of the buffer.
 
 %------------------------------------------------------------------
-\begin{figure}[htp!]
-\centering
-\includegraphics[width=0.9\textwidth]{./images/dataStorage.pdf}
-\caption{Layout of the ``flattened'' matrix and mechanism state data for a cell group, and the mechanism data structure that points into it. There are $m$ mechanisms, and there are $n$ nodes in the illustrated mechanism $M_1$.}
-\label{fig:dataLayout}
-\end{figure}
+\begin{myfigure}{data layout for a cell group and mechanism}{fig:dataLayout}
+\begin{center}
+\includegraphics[width=\textwidth]{./images/dataStorage.pdf}
+\end{center}
+Layout of the ``flattened'' matrix and mechanism state data for a cell group, and the mechanism data structure that points into it. There are $m$ mechanisms, and there are $n$ nodes in the illustrated mechanism $M_1$.
+\end{myfigure}
 %------------------------------------------------------------------
 
-\todo{are ion channels "one per node"?}
+In \neuron the mechanisms are stored in a linked list attached to the \lst{NrnThread}.
+Each entry in the linked list has a \lst{data[]} pointer that points to the part of the cell group array that contains the mechanism's state information.
+\fig{fig:dataLayout} shows a mechanism with 4 state variables per node, labelled $a,b,c,~\text{and}~d$.
+The \lst{Memb_list} structure also stores \lst{nodecount}, the number of nodes in the cell group with the mechanism, and a set of indexes \lst{nodeindices} of those nodes.
 
+\begin{infobox}{Important properties of \texttt{nodeindices} in \fig{fig:dataLayout}}
+\begin{enumerate}[leftmargin=*]
+\item
+The indices are not contiguous.
+\item
+There are repeated indices (the index 4 is repeated twice). These are an artifact of mesh coarsening, when multiple nodes in a fine mesh that have the same mechanism are combined into one node.
+\end{enumerate}
+\end{infobox}
+
+The properties of the \lst{nodeindices} present challenges to fine-grained parallelism, both vectorization and if multiple threads to evaluate a mechanism on the same cell group.
+The main computational loops, see for example \lstref{lst:current} or \lstref{lst:state}, load values from the matrix vectors using the \lst{nodeindices} to describe the access pattern.
+The first property of the array, non-contiguous values, means that these operations can't be vectorized.
+The second property, repeated indices, can cause race conditions when the indices are used when writing.
+
+One way to remove these issues would be to allocate additional state variables for each value that has to be indexed from the global state in this manner.
+These buffers could be loaded and flushed before and after the mechanism is applied respectively.
+The overhead of the scatter and gather phases would have to be amortized over the cost of applying the mechanism kernel, which might only work for computationally intensive kernels such as the \lst{current}.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{The Neuron DSL and \hoc Files}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -107,54 +136,32 @@ Each file defines functions (like \lst{jacob}, \lst{current}, \lst{alloc}) and m
     Furthermore, much of the meta-data that is currently passed as runtime parameters could be stored as type-information that could help the compiler optimize more agressively.
 \end{itemize}
 
-\noindent
-Mechanisms and their storage:
-\begin{itemize}
-\item
-    All mechanisms are not applied to different nodes. For example, the \lst{ProbAMPANDMDA_EMS} mechanism will only be applied at a subset of the nodes in a cell.
-\item
-    Each mechanism has ``state'' that is stored for each node to which it is applied. This state is a set of double-precision values (e.g. a set of values describing the time evolution of a ordinary differential equation).
-\item
-    The number of state variables varies between mechanisms, ranging from 3 to 35 values.
-\item
-    Each entry in \lst{memb_list[]} stores 
-    \begin{itemize}
-    \item
-        \lst{int nodecount}: the number of nodes to which
-    \item
-        \lst{int nodeindices[nodecount]}: the indexes of the nodes to which the mechanism is to be applied.
-    \item
-        \lst{double data[nodecount*var_per_node]}: AoS storage for the mechanism  values.
-    \end{itemize}
-\end{itemize}
-
 %------------------------------------------------------------------
+\subsection{Source code for the cell group and mechanism implementation}
+\label{sec:cellgroupccode}
 \filelisting[C++] {./code/storage.cpp}{cell group storge in a \texttt{NrnThread} struct}{lst:NrnThreadInfo}
 \filelisting[C++] {./code/register_mech.cpp}{registering a mechanism}{lst:register_mech}
 %------------------------------------------------------------------
 
-
-\noindent
-Observations
-\begin{itemize}
+\subsection{Observations}
+\begin{infobox}{Suggestions for further investigation}
+\begin{itemize}[leftmargin=*]
 \item
-    Splitting the cells into seperate, thread-specific, data structures complicates the code. This feels like it was added at some point to facilicate threading.
-\item
-    Could be stripped away, to store all cells on a node/numa-region/device into a single pool.
+    Splitting the cells into separate, thread-specific, data structures complicates the code. This feels like it was added at some point to facilitate threading. This could be removed, to store all cells on a node/numa-region/device in a single pool.
 \item
     The AoS storage is inefficient:
     \begin{itemize}
     \item
         It doesn't vectorize (see \fig{fig:papisample}).
     \item
-        Poor cache/bandwidth utlization for loops (such as the \lst{jacob} update) where only one or two data values in a mechanism are touched. For each 64 byte cache line loaded, only 8 bytes of 64 are used.
+        Poor cache/bandwidth utilization for loops (such as the \lst{jacob} update) where only one or two data values in a mechanism are touched. For each 64 byte cache line loaded, only 8 bytes of 64 may be used.
     \end{itemize}
     An SoA storage would address both issues.
 \item
-    With SoA vectorization of most loops would still not be possible, because of the gather/scatter implicit in using the node indexes to read/write to the V and RHS vectors.
+    With SoA vectorization of most loops would still not be possible, because of the gather/scatter implicit in using the node indexes to read/write to the \lst{VEC_V} and \lst{VEC_RHS} vectors.
     \begin{itemize}
     \item
         Perform scatter before computing the current, then gather after.
     \end{itemize}
 \end{itemize}
-
+\end{infobox}

@@ -33,9 +33,8 @@ Here we present preliminary benchmarking results based on the benchmark datasets
 \end{itemize}
 
 %-------------------------------------------------------------------------------
-\begin{table}[htp!]
-    \centering
-%-------------------------------------------------------------------------------
+\begin{mytable}{simple coreneuron scaling test}{tbl:test2scaling}
+\begin{center}
 \begin{tabular}{l|l|rrrrr}
 \multirow{2}{*}{}
 & cells-per-core  &    1  & 2     & 4     & 8  & 16  \\
@@ -54,11 +53,10 @@ Here we present preliminary benchmarking results based on the benchmark datasets
 &512              & 413.5 & 396.8 & 389.2 & 377.7 & --\\
 %\hline
 \end{tabular}
-
-%*******************************************************************************
-\label{tbl:test2scaling}
-\caption{Wall time for TEST2 as both the number of nodes and cells-per-node are varied. Each test always use 8 cores/MPI ranks per-node. The times in \textcolor{red}{red} indicate unexplained timings, and those marked \textcolor{red}{DNF} did not finish due to memory restrictions (it is not possible to run with more than 16 cells per node due to memory restrictions.)}
-\end{table}
+\end{center}
+\vspace{10pt}
+Wall time for TEST2 as both the number of nodes and cells-per-node are varied. Each test always use 8 cores/MPI ranks per-node. The times in \textcolor{red}{red} indicate unexplained timings, and those marked \textcolor{red}{DNF} did not finish due to memory restrictions (it is not possible to run with more than 16 cells per node due to memory restrictions.)
+\end{mytable}
 %*******************************************************************************
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -68,35 +66,31 @@ To profile the code I tried using Scorep and the Cray perftools, with varying su
 
 To obtain reliable results without any sampling overhead, the papi-wrap\footnote{\file{github.com/bcumming/papi-wrap}} library was used. This is a simple C++ wrapper around the Papi library for hardware counters, with a simple C API for adding samplers to source code, as shown in \fig{fig:papiinline}.
 
-\begin{figure}[htp!]
-\begin{shaded}
-\lstinputlisting [language=C++,breaklines=true] {./code/papi.cpp}
-\end{shaded}
-\caption{Steps to add papi-wrap sampling to \neuron.}
-\label{fig:papiinline}
-\end{figure}
+%*******************************************************************************
+\filelisting [C++] {./code/papi.cpp}{papi instrumentation of }{lst:papiinline}
+%*******************************************************************************
 
-\begin{figure}[htp!]
+\begin{myfigure}{example papi-wrap output}{fig:papisample}
+\begin{center}
 \begin{lstlisting} [identifierstyle=\color{Black}\small\ttfamily]
----------------------------------------------------------------
-collector                time      %   PAPI_DP_OPS PAPI_VEC_DP
----------------------------------------------------------------
-rhs_current          346.3654  45.10  152884436985  3990534760
-nonvint              318.4637  41.47  118203493855  5812061816
-lhs_jacob             84.7244  11.03    9945680740           0
-other                  8.7107   1.13       4664371        1548
-matrix_solve           4.0380   0.53    2097774870      770040
-rhs_update             2.4865   0.32    1320459042           0
-lhs_update             1.4597   0.19     607782930           0
-update                 0.9977   0.13     749043581   239121640
-lhs_cap_jacob          0.7062   0.09     546709757           0
-second_order_current   0.0153   0.00          8188           0
+------------------------------------------------------------
+collector                time     %  PAPI_DP_OPS PAPI_VEC_DP
+------------------------------------------------------------
+rhs_current          346.3654 45.10 152884436985 3990534760
+nonvint              318.4637 41.47 118203493855 5812061816
+lhs_jacob             84.7244 11.03   9945680740          0
+other                  8.7107  1.13      4664371       1548
+matrix_solve           4.0380  0.53   2097774870     770040
+rhs_update             2.4865  0.32   1320459042          0
+lhs_update             1.4597  0.19    607782930          0
+update                 0.9977  0.13    749043581  239121640
+lhs_cap_jacob          0.7062  0.09    546709757          0
+second_order_current   0.0153  0.00         8188          0
 TOTAL                767.9675
----------------------------------------------------------------
+------------------------------------------------------------
 \end{lstlisting}
-\caption{Sample output from papi-wrap.}
-\label{fig:papisample}
-\end{figure}
+\end{center}
+\end{myfigure}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Breakdown of time to solution}
@@ -106,5 +100,7 @@ TOTAL                767.9675
 \subsection{Profiling With Scorep}
 \label{sec:scorep}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\todo{Describe steps required to get test with Scorep/Cube/Vampir.}
+\begin{todo}
+Describe steps required to get test with Scorep/Cube/Vampir.
+\end{todo}
 

@@ -11,21 +11,22 @@ An aim of this report is as a first attempt at describing the algorithms clearly
 %-------------------------------------------------------------
 \subsection{Understanding The Code}
 %-------------------------------------------------------------
-Neuron has grown organically, with new features ``bolted on'' over a long period of time (e.g. support for Python scripting, threading, etc.). Some of these features have been removed in \neuron, leaving behind some design patterns that at first confuse newcomers. One consequence is that there are some data structures that are overly-complicated for the role they currently serve, but they were part of a more complicated design before the \neuron rewrite.
-
-There are also many instances where the naming of variables, global variables, and gratuitous use of the preprocessor don't help. It is recommended that the code be reformatted using a tool like \file{clang-format} (especially the automatically generated C files in \file{mech/cfiles}). Applying the preprocessor to individual files shows the origin of symbols that have been \#defined with the preprocessor (e.g. using the ``\file{-E -P}''\footnote{\lst{-E} applies the preprocessor, and \lst{-P} makes the output more human readable.} flag in \lst{gcc})
+Neuron has grown organically, with new features ``bolted on'' over a long period of time (e.g. support for Python scripting, threading, etc.).
+Some of these features have been removed in \neuron, leaving behind some design patterns that at first confuse newcomers.
+One consequence is that there are some data structures that are overly-complicated for the role they currently serve, but they were part of a more complicated design before the \neuron rewrite.
+There are also many instances where the naming of variables, global variables, and gratuitous use of the preprocessor don't help.
+\begin{note}
+It is recommended that the code be reformatted using a tool like \file{clang-format} (especially the automatically generated C files in \file{mech/cfiles}). Applying the preprocessor to individual files shows the origin of symbols that have been \#defined with the preprocessor. For example, using the ``\file{-E -P}'' flag in \texttt{gcc} (\lst{-E} applies the preprocessor, and \lst{-P} makes the output more human readable.)
+\end{note}
 
 %-------------------------------------------------------------
 \subsection{Code Layout}
 %-------------------------------------------------------------
-The source code is packaged in a file \lst{CoreBluron.tar.gz}, which has the directory structure in \fig{fig:DirectoryStructure}.
+The source code is packaged in a file \lst{CoreBluron.tar.gz}, which has the directory structure in shown below.
 In terms of time to solution, functions defined in \lst{mech/cfiles} dominate. These are called from the solver routines in \lst{nrnoc}, which implements the core computation, and is the focus of the analysis here.
 
-\begin{figure}[tp!]
-%---------------------------
-\fbox{ \parbox{\textwidth} {
-
-\begin{itemize}
+\begin{infobox}{The directory structure of the \neuron distributed as part of the PCP}
+\begin{itemize}[leftmargin=*]
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     \item \textbf{nrniv}
     \begin{itemize}
@@ -70,14 +71,7 @@ In terms of time to solution, functions defined in \lst{mech/cfiles} dominate. T
         \item Random number generators
     \end{itemize}
 \end{itemize}
-
-}}
-%---------------------------
-
-\caption{Overview of the directory structure for the source code. There are a total of 31,250 lines of code (including white space and comments).}
-\label{fig:DirectoryStructure}
-
-\end{figure}
+\end{infobox}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Building}
@@ -91,10 +85,12 @@ The Buildyard uses cmake, with a custom set of cmake modules developed by BBP (t
 \subsection{Datasets}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 There are two data sets provided with the PCP benchmark code:
+\begin{infobox}{The two data sets available with the PCP}
 \begin{itemize}
     \item \textbf{TEST1\_CACHE} A network small enough to fit into Cache of one rack of BG/Q. Has size of 2.5G on disk.
     \item \textbf{TEST2\_DRAM} A much larger network (size 4.5T on disk), that fits in DRAM of one rack of BG/Q.
 \end{itemize}
+\end{infobox}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
