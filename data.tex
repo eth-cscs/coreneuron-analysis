@@ -65,15 +65,17 @@ Allocating memory in one large block is more memory efficient than allocating ma
 }.
 This process of allocating the memory is performed in the function \lst{read_phase2} in \file{nrniv/nrn_setup.cpp}.
 
-The layout of vectors in the \lst{data[]} array is shown in \fig{}.
+The layout of vectors in the \lst{data[]} array is shown in \fig{fig:dataLayout}.
 When the cell group is read from file, the total size of the \lst{data[]} array is determined, then the memory allocated.
 The vectors that describe the linear system and the area of each node, \lst{[VEC_RHS, VEC_D, VEC_A, VEC_B, VEC_V, actual_area]}, are placed at the front of the data vector.
 The state data for the mechanism then follows.
 
 %------------------------------------------------------------------
 \begin{figure}[htp!]
-\input{images/dataStorage.tex}
-\caption{Layout of matrix and mechanism state data for a cell group.}
+\centering
+\includegraphics[width=0.9\textwidth]{./images/dataStorage.pdf}
+\caption{Layout of the ``flattened'' matrix and mechanism state data for a cell group, and the mechanism data structure that points into it. There are $m$ mechanisms, and there are $n$ nodes in the illustrated mechanism $M_1$.}
+\label{fig:dataLayout}
 \end{figure}
 %------------------------------------------------------------------
 
@@ -96,7 +98,7 @@ Each file defines functions (like \lst{jacob}, \lst{current}, \lst{alloc}) and m
         The \lst{Memb_list} has a pointer to the per-node data, and a list of all the nodes that the mechanism is defined for.
     \end{enumerate}
 \item
-    The implementation of a mechanism in \lst{mech/cfiles} provides has a function \lst{??} that calls the \lst{register_mech()} function, which adds the mechanisms function callbacks for \lst{jacob} etc, along with meta-data into the global arrays (see \fig{lst:register_mech}).
+    The implementation of a mechanism in \lst{mech/cfiles} provides has a function \lst{__} that calls the \lst{register_mech()} function, which adds the mechanisms function callbacks for \lst{jacob} etc, along with meta-data into the global arrays (see \fig{lst:register_mech}).
 \item
     Each thread has a list of mechanisms assigned to it, which are accessed via a linked list \lst{NrnThread::mechanisms} (see \fig{lst:NrnThreadInfo} where I have changed the name \lst{tml} to \lst{mechanisms}, to better match the pseudo code.) The linked list indexes the global arrays \lst{memb_list} and \lst{memb_func} \hilight{(why not use an array instead of a linked list?)}.
 \item
@@ -127,18 +129,10 @@ Mechanisms and their storage:
 \end{itemize}
 
 %------------------------------------------------------------------
-\filelisting[C++] {./code/storage.cpp}{cell group storge in a \texttt{NrnThread} struct}
-%\label{lst:NrnThreadInfo}
-\filelisting[C++] {./code/register_mech.cpp}{registering a mechanism}
-%\label{lst:register_mech}
+\filelisting[C++] {./code/storage.cpp}{cell group storge in a \texttt{NrnThread} struct}{lst:NrnThreadInfo}
+\filelisting[C++] {./code/register_mech.cpp}{registering a mechanism}{lst:register_mech}
 %------------------------------------------------------------------
 
-%------------------------------------------------------------------
-\begin{figure}[htp!]
-\input{images/AoSvsSoA.tex}
-\caption{The current AoS layout of mechanism parameters for all applicable nodes.}
-\end{figure}
-%------------------------------------------------------------------
 
 \noindent
 Observations
