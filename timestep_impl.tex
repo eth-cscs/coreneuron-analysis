@@ -200,10 +200,14 @@ The \lst{nonvint} function is a simple lookup of the \lst{state} function define
 
 \filelisting [julia] {./code/nonvint.jl}{non voltage integration}{lst:nonvint}
 
-The \lst{state} function implementations are derived from the \hoc implementation, and are specialized for each mechanism type. These have obvious potential for vectorization, because they are often compuationally intensive with expensive operations like \lst{exp} and \lst{pow}. Below is an example of one state update, note the many exponentials (some of which are redundant, i.e. no attempt is made to take advantage of identities like $\text{e}^{-x}=1/\text{e}^{x}$)
+The \lst{state} function defined in the \hoc implementation, and are specialized for each mechanism type. These have great potential for optimization, because they are often computationally intensive with operations like \lst{exp} and \lst{pow}. Below is an example of one state update; note the many exponentials.
 
 \filelisting [julia] {./code/state.jl}{integrating the currents}{lst:state}
 
 \begin{note}
-    The \lst{state}, \lst{current} and \lst{jacob} functions are defined uniquely for each mechanism type. Not all mechansims have require all of these functions, in which case calling one of these functions on that mechanism type does nothing. In practice \neuron implements this by checking the value of a function pointer, and only calls it if the pointer is not \lst{NULL}.
+    Many of the floating point operations in the \lst{state/rate/current} functions derived from the \hoc files are redundant. For example, in the example in \lstref{lst:state} no attempt is made to take advantage of identities like $\text{e}^{-x}=1/\text{e}^{x}$. Removing these operations during code generation would reduce the computational compexity of the code.
+\end{note}
+
+\begin{note}
+    The \lst{state}, \lst{current} and \lst{jacob} functions are defined for each mechanism type. Not all mechansims implement all of these functions, in which case calling one of these functions on that mechanism type does nothing. In practice \neuron checks the value of a function pointer, and only calls it if the pointer is not \lst{NULL}.
 \end{note}
