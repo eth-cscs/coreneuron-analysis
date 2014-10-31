@@ -111,39 +111,47 @@ One way to remove these issues would be to allocate additional state variables f
 These buffers could be loaded and flushed before and after the mechanism is applied respectively.
 The overhead of the scatter and gather phases would have to be amortized over the cost of applying the mechanism kernel, which might only work for computationally intensive kernels such as the \lst{current}.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Ion Channels}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{todo}
+The implementation of Ion channels is still a bit of a mystery to me.
+
+The main issue is how mechanisms interact with ion channels. Currently an opaque indirect index () is used, whereby a mechanism accesses ion channel variables via the \lst{ppvar} index vector.
+
+These indexes are hard-coded in the cell group data that is read in from \file{.dat} files.
+\end{todo}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{The Neuron DSL and \hoc Files}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Mechanisms in Neuron are described using a DSL, which is translated into C code from \hoc files.
 \neuron has the C files translated from the \hoc files that used by HBPNeuron\footnote{This reduces the complexity of \neuron, decoupling \neuron from Neuron, which will make it easier modify how the mechanisms are defined.}.
 The translated mechanism definitions are in \file{mech/cfiles}, with one mechanism per C source file.
 Each file defines functions (like \lst{jacob}, \lst{current}, \lst{alloc}) and meta-data (such as the number of variables required to store a mechanism's state for a node in the tree).
-\begin{itemize}
+
+\begin{infobox}{The mechanisms are stored in global two arrays:}
+\begin{enumerate}[leftmargin=*]
 \item
-    The mechanism data is stored in global two arrays: \lst{Memb_list memb_list[]} and \lst{Memb_func memb_func[]}.
-    \begin{enumerate}
-    \item
-        The \lst{Memb_func} type has function pointers to the \lst{jacob}, \lst{current}, \lst{state} and other mechanism-specific functions, and other meta-data specific to the mechanism.
-    \item
-        The \lst{Memb_list} has a pointer to the per-node data, and a list of all the nodes that the mechanism is defined for.
-    \end{enumerate}
+    The array \lst{memb_func[]} is an array of \lst{Memb_func} structs. For each mechanism there are function pointers to \lst{jacob}, \lst{current}, \lst{state} and other mechanism-specific functions, and other meta-data specific to the mechanism.
 \item
-    The implementation of a mechanism in \lst{mech/cfiles} provides has a function \lst{__} that calls the \lst{register_mech()} function, which adds the mechanisms function callbacks for \lst{jacob} etc, along with meta-data into the global arrays (see \fig{lst:register_mech}).
-\item
-    Each thread has a list of mechanisms assigned to it, which are accessed via a linked list \lst{NrnThread::mechanisms} (see \fig{lst:NrnThreadInfo} where I have changed the name \lst{tml} to \lst{mechanisms}, to better match the pseudo code.) The linked list indexes the global arrays \lst{memb_list} and \lst{memb_func} \hilight{(why not use an array instead of a linked list?)}.
-\item
-    There are many opportunities to improve the interface between the runtime (solvers etc) and user-defined mechanisms.
-    This model is well-suited to standard object-oriented design.
-    Furthermore, much of the meta-data that is currently passed as runtime parameters could be stored as type-information that could help the compiler optimize more agressively.
-\end{itemize}
+    Each member of the array \lst{memb_list[]} is of the type \lst{Memb_list} has a pointer to the per-node data, and a list of all the nodes that the mechanism is defined for, as illustrated in \fig{fig:dataLayout}.
+\end{enumerate}
+\end{infobox}
+
+The implementation of each mechanism exports a function \lst{<mechanism name>_reg} that calls the \lst{register_mech()} function, adding the mechanisms function callbacks for \lst{jacob} etc, along with meta-data into the global arrays \lst{memb_func/list[]}.
+As such, the implementation of each mechanism is a ``black box'', with only the function for registering the function exported.
+
+Simplified source code for the implementation of these features is shown in \lstref{lst:NrnThreadInfo} and \lstref{lst:register_mech}.
 
 %------------------------------------------------------------------
-\subsection{Source code for the cell group and mechanism implementation}
 \label{sec:cellgroupccode}
 \filelisting[C++] {./code/storage.cpp}{cell group storge in a \texttt{NrnThread} struct}{lst:NrnThreadInfo}
 \filelisting[C++] {./code/register_mech.cpp}{registering a mechanism}{lst:register_mech}
 %------------------------------------------------------------------
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Observations}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Some thoughts about refactoring the code that provide some interesting topics for discussion.
 \begin{infobox}{Suggestions for further investigation}
 \begin{itemize}[leftmargin=*]
 \item
@@ -163,5 +171,16 @@ Each file defines functions (like \lst{jacob}, \lst{current}, \lst{alloc}) and m
     \item
         Perform scatter before computing the current, then gather after.
     \end{itemize}
+\item
+    There are many opportunities to improve the interface between the runtime (solvers etc) and user-defined mechanisms.
+    \begin{itemize}
+    \item
+        This model is well-suited to standard object-oriented design.
+    \item
+        Much of the meta-data that is currently passed as runtime parameters could be stored as type-information that could help the compiler optimize more aggressively.
+    \item
+        The current DSL could be kept, with the code generation given an overhaul.
+    \end{itemize}
+
 \end{itemize}
 \end{infobox}
