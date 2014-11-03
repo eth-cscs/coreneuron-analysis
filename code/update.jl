@@ -3,7 +3,11 @@ function second_order_cur(cell_group)
   if secondorder == 2
     for mechanism in cell_group.mechanisms
       if is_ion(mechanism)
-        mechanism.data.c += mechanism.data.dc .* VEC_RHS
+        ni   = mechanism.nodeindices
+        data = mechanism.data
+        for i in 1:mechanism.nodecount
+          data.c[i] += data.dc[i] * VEC_RHS[ni[i]]
+        end
       end
     end
   end
