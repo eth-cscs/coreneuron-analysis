@@ -58,7 +58,8 @@ A small tree structure that will be used throughout this section is illustrated 
 The first step of the spatial discretization is to discretize each one-dimensional section. Then the nodes are numbered using a scheme that gives the matrix a sparsity structure that allows the linear system to be solved in linear time, equivalent to Thomas algorithm.
 
 A numbering scheme for the nodes that facilitates efficient solution of the linear system is not unique. A general description of a valid numbering strategy is as follows:
-\begin{enumerate}
+\begin{infobox}{Example numbering scheme that maintains \textit{minimum degree ordering}}
+\begin{enumerate}[leftmargin=*]
     \item
         One node is chosen as the \emph{root node} of the tree, either a terminal node or a branch node, and assigned index 1.
     \item
@@ -66,7 +67,8 @@ A numbering scheme for the nodes that facilitates efficient solution of the line
     \item
         Every node (except the root node) has one-and-only-one \emph{parent node}, which is its neighbour that is closer to the root node (and thus has a lower index).
 \end{enumerate}
-The key property that is maintained by the numbering scheme is that the index of a node's parent node is lower than the node's index (equivalent to \emph{minimum degree ordering}). An example of a numbering strategy being recursively applied to our example tree is shown in \fig{fig:tree}(b).
+\end{infobox}
+The key property that is maintained by the numbering scheme is that the index of each node's parent node is lower than the node's index (equivalent to \emph{minimum degree ordering}). An example of the numbering strategy described above applied recursively to our example tree is shown in \fig{fig:tree}(b).
 
 \begin{myfigure}{matrix sparsity pattern}{fig:sparsity}
 \begin{center}

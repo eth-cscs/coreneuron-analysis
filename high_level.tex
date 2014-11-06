@@ -46,16 +46,13 @@ Test performed one one node of Piz Daint with 8 MPI ranks, and one cell group pe
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Drilling Down to The Time Step}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The time stepping and all computation associated with it are performed in the \lst{BBS_netpar_solve} routine. A backtrace of the call tree from \lst{BBS_netpar_solve} to \lst{nrn_fixed_step_thread}, where 100\% of the computation is performed, is shown in \fig{fig:bbsnetpar}. The exact role played by each of these routines is not important now: some of them , and others are wrappers for passing cell groups to a pthread to separate integration (see \sect{sec:data} for more information about cell groups and threads). It is the integration of individual cell groups inside the lowest level function, \lst{nrn_fixed_step_thread} that interests us.
+The time stepping and all computation associated with it are performed in the \lst{BBS_netpar_solve} routine. A backtrace of the call tree from \lst{BBS_netpar_solve} to \lst{nrn_fixed_step_thread}, where 100\% of the computation is performed, is shown in \fig{fig:bbsnetpar}. The exact role played by each of these routines is not important now: some of them , and others are wrappers for passing cell groups to a pthread to separate integration (see \sect{sec:data} for more information about cell groups and threads). It is the integration of individual cell groups inside the lowest level function, \lst{nrn_fixed_step_thread}, that is of interest.
 
 \begin{myfigure}{Backtrace to inner time step}{fig:bbsnetpar}
 \centering
 \includegraphics[width=\textwidth]{./images/bbs_netpar_solve.pdf}
 \end{myfigure}
 
-Each MPI rank has a set of cells assigned to it in a round robin fashion during the initialization phase (in the call to \lst{nrn_setup} in \lst{main}).
-The cells are packaged together into \emph{cell groups}, with one cell group per intput file. The selection of cells in a cell group is chosen when the input files are generated to improve load balancing (static load balancing).
-For more information, see \sect{sec:data}.
 
 %The cells are then assigned to a \lst{NrnThread} on each MPI rank. An abreviated definition of is given in \fig{lst:NrnThread}
 

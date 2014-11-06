@@ -1,9 +1,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Pseudo-Code}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The algorithm in the time stepping are quite simple, however their implementation can be very difficult to understand and reason about. To make it easier to understand to understand implementation, the core routines are presented here in a high-level pseudo code similar to Julia. Many variables, type names, and functions have been renamed to make their meaning clearer. For example \lst{_nt} has been renamed \lst{cell_group}, to clearly identify its meaning.
+The algorithms in the time stepping are quite simple, however their implementation can be very difficult to understand and reason about. To make it easier to understand their implementation, the core routines are presented here in a high-level pseudo code similar to Julia. Many variables, type names, and functions have been renamed to make their meaning clearer. For example the variable \lst{_nt} is renamed \lst{cell_group}, to better represent its contents.
 
-An example of the pseudo code represents the following C code
+For example, the following C code
 \begin{inlinelisting}{C++}{current C mechanism loop}{lst:cmechloop}
 for (tml = _nt->tml; tml; tml = tml->next)
   if (memb_func[tml->index].current) {
@@ -11,7 +11,7 @@ for (tml = _nt->tml; tml; tml = tml->next)
     (*s)(_nt, tml->ml, tml->index);
   }
 \end{inlinelisting}
-\noindent as
+\noindent is rewritten in the following form:
 \begin{inlinelisting}{julia}{julia mechanism loop}{lst:juliamechloop}
 for mechanism in cell_group.mechanisms
   current(mechanism)
@@ -30,7 +30,10 @@ for( auto &mechanism : cell_group.mechanisms() ) {
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 The data layout in the \neuron code is described in more detail in \sect{sec:data}. For this part of the report, we use a representation of the storage for a group of cells that is easier to understand.
 
-\neuron stores \emph{cell groups}, which are a set of cells, in a \lst{NrnThread} data structure. The ``thread'' in the type name is misleading, so it is renamed as a \lst{CellGroup} in \lstref{lst:juliacellgroup}.
+Each MPI rank has a set of cells assigned to it in a round robin fashion during the initialization phase (in the call to \lst{nrn_setup} in \lst{main}).
+The cells are packaged together into \emph{cell groups}, with one cell group per intput file. The selection of cells in a cell group is chosen when the input files are generated to improve load balancing (static load balancing).
+
+\neuron stores \emph{cell groups} in a \lst{NrnThread} data structure. The ``thread'' in the type name is misleading, so it is renamed in our pseudo code as a \lst{CellGroup} in \lstref{lst:juliacellgroup}.
 
 \begin{inlinelisting}{julia}{cell group data structure}{lst:juliacellgroup}
 # storage for a group of cells packed into flat arrays
@@ -54,7 +57,7 @@ end
 
 The other important abstraction is a \emph{mechanism}. In the definition of \lst{CellGroup}, there is an array called \lst{mechanisms}. Loosley defined, mechanisms are processes that occur at nodes \footnote{This is generally true. There are some exceptions, but we ignore those for now.}, for example a mechanism might define the state of a synapse at a node.
 
-The same mechanism can be applied to more than one nodes in a cell group, e.g. the same synapse type might be present at many different nodes. Pseudo code for a type that stores the information required to define a mechanism for a cell group is in \lstref{lst:juliamechanism}.  There are three important sets of information for the mechanism type:
+The same mechanism can be applied to multiple nodes in a cell group, e.g. the same synapse type might be present at many different nodes. Pseudo code for a type that stores the information required to define a mechanism for a cell group is in \lstref{lst:juliamechanism}.  There are three important sets of information for the mechanism type:
 \begin{enumerate}
     \item
         Information about which nodes the mechanism is to be applied at, i.e. \lst{nodecount} and \lst{nodeindices}.
