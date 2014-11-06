@@ -1,0 +1,14 @@
+Before starting you will need:
+    - A recent distribution of LaTeX
+        tested with TexLive 2014 on OS X and Arch Linux
+    - GraphViz for drawing the .dot files
+
+
+to build:
+> cd images
+> make          # requires graphvis
+> cd ..
+> make force
+
+The makefile will build the pdf, however LaTeX requires more than iteration to get all of the references correct. Running "make force" will force it to always recompile, reguarless of whether any of the .tex input files have changed.
+
