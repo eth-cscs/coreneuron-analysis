@@ -20,8 +20,8 @@ end
 
 \noindent Note that the same level of clarity is possible with C+11:
 \begin{inlinelisting}{julia}{C++11 mechanism loop}{lst:cppmechloop}
-for( auto &mechanism : cell_group.mechanisms() ) {
-  mechanism.current();
+for(auto mechanism : cell_group.mechanisms()) {
+  mechanism->current();
 }
 \end{inlinelisting}
 
